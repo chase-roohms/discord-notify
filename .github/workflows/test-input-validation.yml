@@ -1,0 +1,339 @@
+---
+name: Test Input Validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-validation:
+    name: Test Input Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Test 1: Missing webhook_url (required field)
+      - name: Test - Missing webhook_url
+        id: test-missing-webhook
+        continue-on-error: true
+        uses: ./
+        with:
+          content: "Test message"
+      
+      - name: Verify - Missing webhook_url failed
+        if: steps.test-missing-webhook.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Missing webhook_url should have failed validation"
+          exit 1
+      
+      # Test 2: Invalid webhook_url format
+      - name: Test - Invalid webhook URL
+        id: test-invalid-webhook
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://example.com/not-a-webhook"
+          content: "Test message"
+      
+      - name: Verify - Invalid webhook URL failed
+        if: steps.test-invalid-webhook.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid webhook_url should have failed validation"
+          exit 1
+      
+      # Test 3: Invalid avatar_url format
+      - name: Test - Invalid avatar URL
+        id: test-invalid-avatar
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          content: "Test message"
+          avatar_url: "not-a-url"
+      
+      - name: Verify - Invalid avatar URL failed
+        if: steps.test-invalid-avatar.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid avatar_url should have failed validation"
+          exit 1
+      
+      # Test 4: Mutually exclusive attachment-files and attachment-urls
+      - name: Test - Mutually exclusive attachments
+        id: test-mutual-exclusive
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          attachment-files: "file1.txt"
+          attachment-urls: "https://example.com/file.txt"
+      
+      - name: Verify - Mutually exclusive attachments failed
+        if: steps.test-mutual-exclusive.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Using both attachment-files and attachment-urls should have failed"
+          exit 1
+      
+      # Test 5: Invalid URL in attachment-urls
+      - name: Test - Invalid attachment URL
+        id: test-invalid-attachment-url
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          attachment-urls: "not-a-valid-url"
+      
+      - name: Verify - Invalid attachment URL failed
+        if: steps.test-invalid-attachment-url.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid attachment-urls should have failed validation"
+          exit 1
+      
+      # Test 6: Non-existent file in attachment-files
+      - name: Test - Non-existent attachment file
+        id: test-nonexistent-file
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          attachment-files: "/path/to/nonexistent/file.txt"
+      
+      - name: Verify - Non-existent file failed
+        if: steps.test-nonexistent-file.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Non-existent attachment file should have failed validation"
+          exit 1
+      
+      # Test 7: No content or attachments or embeds
+      - name: Test - No content provided
+        id: test-no-content
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+      
+      - name: Verify - No content failed
+        if: steps.test-no-content.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: No content/attachments/embeds should have failed validation"
+          exit 1
+      
+      # Test 8: Too many embeds (> 10)
+      - name: Test - Too many embeds
+        id: test-too-many-embeds
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: '["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9", "E10", "E11"]'
+      
+      - name: Verify - Too many embeds failed
+        if: steps.test-too-many-embeds.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: More than 10 embeds should have failed validation"
+          exit 1
+      
+      # Test 9: Invalid embed color format
+      - name: Test - Invalid embed color
+        id: test-invalid-color
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-colors: "GGGGGG"
+      
+      - name: Verify - Invalid color failed
+        if: steps.test-invalid-color.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid hex color should have failed validation"
+          exit 1
+      
+      # Test 10: Invalid embed URL
+      - name: Test - Invalid embed URL
+        id: test-invalid-embed-url
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-urls: "not-a-valid-url"
+      
+      - name: Verify - Invalid embed URL failed
+        if: steps.test-invalid-embed-url.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid embed-urls should have failed validation"
+          exit 1
+      
+      # Test 11: Invalid embed image URL
+      - name: Test - Invalid embed image URL
+        id: test-invalid-image-url
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-image-urls: "ftp://not-http-url.com/image.png"
+      
+      - name: Verify - Invalid image URL failed
+        if: steps.test-invalid-image-url.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid embed-image-urls should have failed validation"
+          exit 1
+      
+      # Test 12: Invalid embed thumbnail URL
+      - name: Test - Invalid embed thumbnail URL
+        id: test-invalid-thumbnail
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-thumbnail-urls: "invalid-url"
+      
+      - name: Verify - Invalid thumbnail URL failed
+        if: steps.test-invalid-thumbnail.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid embed-thumbnail-urls should have failed validation"
+          exit 1
+      
+      # Test 13: Invalid embed author URL
+      - name: Test - Invalid embed author URL
+        id: test-invalid-author-url
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-authors: "Author Name"
+          embed-author-urls: "not-a-url"
+      
+      - name: Verify - Invalid author URL failed
+        if: steps.test-invalid-author-url.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid embed-author-urls should have failed validation"
+          exit 1
+      
+      # Test 14: Invalid embed author icon URL
+      - name: Test - Invalid embed author icon
+        id: test-invalid-author-icon
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-authors: "Author Name"
+          embed-author-icons: "invalid"
+      
+      - name: Verify - Invalid author icon failed
+        if: steps.test-invalid-author-icon.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid embed-author-icons should have failed validation"
+          exit 1
+      
+      # Test 15: Invalid embed footer icon URL
+      - name: Test - Invalid embed footer icon
+        id: test-invalid-footer-icon
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-footers: "Footer Text"
+          embed-footer-icons: "invalid"
+      
+      - name: Verify - Invalid footer icon failed
+        if: steps.test-invalid-footer-icon.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid embed-footer-icons should have failed validation"
+          exit 1
+      
+      # Test 16: Invalid embed timestamp
+      - name: Test - Invalid embed timestamp
+        id: test-invalid-timestamp
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-timestamps: "not-a-valid-timestamp"
+      
+      - name: Verify - Invalid timestamp failed
+        if: steps.test-invalid-timestamp.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid embed-timestamps should have failed validation"
+          exit 1
+      
+      # Test 17: Invalid JSON in embed-fields
+      - name: Test - Invalid embed fields JSON
+        id: test-invalid-fields-json
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-fields: "not valid json"
+      
+      - name: Verify - Invalid fields JSON failed
+        if: steps.test-invalid-fields-json.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid embed-fields JSON should have failed validation"
+          exit 1
+      
+      # Test 18: Embed fields missing required properties
+      - name: Test - Embed fields missing name/value
+        id: test-fields-missing-props
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: "Test Embed"
+          embed-fields: '[{"name": "Field Name"}]'
+      
+      - name: Verify - Fields missing properties failed
+        if: steps.test-fields-missing-props.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: embed-fields missing required properties should have failed"
+          exit 1
+      
+      # Test 19: Mismatched array lengths in embed fields
+      - name: Test - Mismatched array lengths
+        id: test-mismatched-arrays
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: '["Title 1", "Title 2"]'
+          embed-colors: '["FF0000", "00FF00", "0000FF"]'
+      
+      - name: Verify - Mismatched arrays failed
+        if: steps.test-mismatched-arrays.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Mismatched array lengths should have failed validation"
+          exit 1
+      
+      # Test 20: Multiple invalid colors in array
+      - name: Test - Invalid colors in array
+        id: test-invalid-color-array
+        continue-on-error: true
+        uses: ./
+        with:
+          webhook_url: "https://discord.com/api/webhooks/123456789/abcdefghijk"
+          embed-titles: '["Title 1", "Title 2"]'
+          embed-colors: '["FF0000", "ZZZZZZ"]'
+      
+      - name: Verify - Invalid color array failed
+        if: steps.test-invalid-color-array.outcome != 'failure'
+        run: |
+          echo "❌ Test failed: Invalid color in array should have failed validation"
+          exit 1
+      
+      # Final success message
+      - name: All validation tests passed
+        run: |
+          echo "✅ All input validation tests passed successfully!"
+          echo "All invalid inputs were properly rejected by the validation logic."
