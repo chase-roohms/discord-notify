@@ -185,10 +185,29 @@ runs:
             if [[ "$field_value" =~ ^\[.*\]$ ]]; then
               # It's a JSON array - validate and get its length
               if echo "$field_value" | jq empty 2>/dev/null; then
-                local length=$(echo "$field_value" | jq '. | length' 2>/dev/null)
-                if [[ -n "$length" ]] && [[ "$length" =~ ^[0-9]+$ ]]; then
-                  array_lengths["$field_name"]=$length
-                  [[ $length -gt $embed_count ]] && embed_count=$length
+                # Special handling for embed-fields: check if it's an array of objects (single embed) 
+                # vs array of arrays (multiple embeds)
+                if [[ "$field_name" == "embed-fields" ]]; then
+                  # Check if first element is an array or an object
+                  local first_elem=$(echo "$field_value" | jq '.[0] | type' 2>/dev/null)
+                  if [[ "$first_elem" == '"array"' ]]; then
+                    # Array of arrays - multiple embeds
+                    local length=$(echo "$field_value" | jq '. | length' 2>/dev/null)
+                    if [[ -n "$length" ]] && [[ "$length" =~ ^[0-9]+$ ]]; then
+                      array_lengths["$field_name"]=$length
+                      [[ $length -gt $embed_count ]] && embed_count=$length
+                    fi
+                  else
+                    # Array of objects - single embed value
+                    [[ $embed_count -lt 1 ]] && embed_count=1
+                  fi
+                else
+                  # Regular field - array means multiple embeds
+                  local length=$(echo "$field_value" | jq '. | length' 2>/dev/null)
+                  if [[ -n "$length" ]] && [[ "$length" =~ ^[0-9]+$ ]]; then
+                    array_lengths["$field_name"]=$length
+                    [[ $length -gt $embed_count ]] && embed_count=$length
+                  fi
                 fi
               fi
             else
@@ -393,6 +412,7 @@ runs:
         get_value_at_index() {
           local input="$1"
           local index="$2"
+          local field_name="$3"  # Optional: field name for special handling
           
           if [[ -z "$input" ]]; then
             echo "null"
@@ -401,12 +421,32 @@ runs:
           
           # Check if it's a JSON array
           if [[ "$input" =~ ^\[.*\]$ ]]; then
-            echo "$input" | jq -r ".[$index] // null"
+            # Special handling for embed-fields
+            if [[ "$field_name" == "embed-fields" ]]; then
+              # Check if first element is an array or object
+              local first_elem=$(echo "$input" | jq '.[0] | type' 2>/dev/null)
+              if [[ "$first_elem" == '"array"' ]]; then
+                # Array of arrays - extract the array at index
+                local extracted=$(echo "$input" | jq ".[$index] // null" 2>/dev/null)
+                echo "$extracted"
+              else
+                # Array of objects - return the whole array as single value
+                echo "$input" | jq '.'
+              fi
+            else
+              # For other fields, extract the value at the index
+              local extracted=$(echo "$input" | jq ".[$index] // null" 2>/dev/null)
+              if [[ "$extracted" == "null" ]]; then
+                echo "null"
+              else
+                echo "$extracted"
+              fi
+            fi
           else
             # Single value - check if it's already valid JSON (object or array)
             if echo "$input" | jq empty 2>/dev/null; then
-              # It's valid JSON, return as-is without quoting
-              echo "$input"
+              # It's valid JSON (like an array or object), return it through jq to ensure proper formatting
+              echo "$input" | jq '.'
             else
               # It's a plain string, quote it
               echo "$input" | jq -R '.'
@@ -492,7 +532,7 @@ runs:
             COLOR_HEX=$(get_value_at_index "${{ inputs.embed-colors }}" $i)
             IMAGE_URL=$(get_value_at_index "${{ inputs.embed-image-urls }}" $i)
             THUMBNAIL_URL=$(get_value_at_index "${{ inputs.embed-thumbnail-urls }}" $i)
-            FIELDS=$(get_value_at_index "${{ inputs.embed-fields }}" $i)
+            FIELDS=$(get_value_at_index "${{ inputs.embed-fields }}" $i "embed-fields")
             FOOTER=$(get_value_at_index "${{ inputs.embed-footers }}" $i)
             FOOTER_ICON=$(get_value_at_index "${{ inputs.embed-footer-icons }}" $i)
             TIMESTAMP=$(get_value_at_index "${{ inputs.embed-timestamps }}" $i)
