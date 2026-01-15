@@ -178,44 +178,20 @@ runs:
           local field_name="$1"
           local field_value="$2"
           
-          echo "Debug: Checking field '$field_name'"
-          echo "Debug: Full value: '$field_value'"
-          echo "Debug: Value length: ${#field_value}"
-          
           if [[ -n "$field_value" ]]; then
-            # Check if it matches JSON array pattern (starts with [ and ends with ])
             if [[ "$field_value" =~ ^\[.*\]$ ]]; then
-              echo "Debug: Field '$field_name' looks like a JSON array"
-              
-              # Try to parse with jq and capture any errors
-              local jq_error
-              jq_error=$(echo "$field_value" | jq empty 2>&1)
-              local jq_status=$?
-              
-              if [[ $jq_status -ne 0 ]]; then
-                echo "Debug: jq parse error for '$field_name': $jq_error"
-                echo "Debug: This is NOT valid JSON. Valid JSON arrays require quoted strings, e.g., [\"value1\", \"value2\"]"
-                # Treat as invalid - don't count it
-                return
-              fi
-              
-              # It's a valid JSON array - get its length
-              local length=$(echo "$field_value" | jq '. | length' 2>/dev/null)
-              echo "Debug: jq returned length: '$length' for field '$field_name'"
-              if [[ -n "$length" ]] && [[ "$length" =~ ^[0-9]+$ ]]; then
-                array_lengths["$field_name"]=$length
-                echo "Debug: Set array_lengths['$field_name']=$length"
-                [[ $length -gt $embed_count ]] && embed_count=$length
-              else
-                echo "Debug: Length validation failed for '$field_name' (length='$length')"
+              # It's a JSON array - validate and get its length
+              if echo "$field_value" | jq empty 2>/dev/null; then
+                local length=$(echo "$field_value" | jq '. | length' 2>/dev/null)
+                if [[ -n "$length" ]] && [[ "$length" =~ ^[0-9]+$ ]]; then
+                  array_lengths["$field_name"]=$length
+                  [[ $length -gt $embed_count ]] && embed_count=$length
+                fi
               fi
             else
-              echo "Debug: Field '$field_name' is a single value (doesn't match ^\\[.*\\]$ pattern)"
               # It's a single value - this is fine, it will be used for all embeds
               [[ $embed_count -lt 1 ]] && embed_count=1
             fi
-          else
-            echo "Debug: Field '$field_name' is empty"
           fi
         }
         
@@ -233,18 +209,6 @@ runs:
         check_embed_field "embed-footers" ${{ toJSON(inputs.embed-footers) }}
         check_embed_field "embed-footer-icons" ${{ toJSON(inputs.embed-footer-icons) }}
         check_embed_field "embed-timestamps" ${{ toJSON(inputs.embed-timestamps) }}
-        
-        # Debug: Print array lengths detected
-        echo "Debug: After all checks, array_lengths has ${#array_lengths[@]} entries"
-        echo "Debug: array_lengths keys: ${!array_lengths[@]}"
-        if [[ ${#array_lengths[@]} -gt 0 ]]; then
-          echo "Debug: Detected ${#array_lengths[@]} fields with JSON arrays:"
-          for field in "${!array_lengths[@]}"; do
-            echo "  - $field: ${array_lengths[$field]} elements"
-          done
-        else
-          echo "Debug: No JSON array fields were detected"
-        fi
         
         # Validate that all JSON arrays have the same length
         if [[ ${#array_lengths[@]} -gt 1 ]]; then
@@ -389,7 +353,6 @@ runs:
         fi
         
         # Report all errors
-        echo "Debug: Total errors collected: ${#ERRORS[@]}"
         if [[ ${#ERRORS[@]} -gt 0 ]]; then
           echo -e "${RED}Input validation failed with ${#ERRORS[@]} error(s):${NC}"
           for error in "${ERRORS[@]}"; do
