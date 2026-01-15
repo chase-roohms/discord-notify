@@ -349,8 +349,8 @@ runs:
         fi
         
         # Validate embed-fields JSON format if provided
-        if [[ -n '${{ inputs.embed-fields }}' ]]; then
-          fields='${{ inputs.embed-fields }}'
+        if [[ -n '${{ toJSON(inputs.embed-fields) }}' ]]; then
+          fields='${{ toJSON(inputs.embed-fields) }}'
           if ! echo "$fields" | jq empty 2>/dev/null; then
             ERRORS+=("embed-fields must be valid JSON")
           else
@@ -501,7 +501,7 @@ runs:
           "${{ inputs.embed-urls }}" \
           "${{ inputs.embed-image-urls }}" \
           "${{ inputs.embed-thumbnail-urls }}" \
-          "${{ inputs.embed-fields }}" \
+          "${{ toJSON(inputs.embed-fields) }}" \
           "${{ inputs.embed-footers }}" \
           "${{ inputs.embed-timestamps }}"; do
           
@@ -532,7 +532,7 @@ runs:
             COLOR_HEX=$(get_value_at_index "${{ inputs.embed-colors }}" $i)
             IMAGE_URL=$(get_value_at_index "${{ inputs.embed-image-urls }}" $i)
             THUMBNAIL_URL=$(get_value_at_index "${{ inputs.embed-thumbnail-urls }}" $i)
-            FIELDS=$(get_value_at_index "${{ inputs.embed-fields }}" $i "embed-fields")
+            FIELDS=$(get_value_at_index "${{ toJSON(inputs.embed-fields) }}" $i "embed-fields")
             FOOTER=$(get_value_at_index "${{ inputs.embed-footers }}" $i)
             FOOTER_ICON=$(get_value_at_index "${{ inputs.embed-footer-icons }}" $i)
             TIMESTAMP=$(get_value_at_index "${{ inputs.embed-timestamps }}" $i)
