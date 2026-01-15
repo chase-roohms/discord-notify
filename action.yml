@@ -170,26 +170,36 @@ runs:
         fi
         
         # Validate embed inputs
-        declare -g embed_count=0
-        declare -gA array_lengths
+        embed_count=0
+        declare -A array_lengths
         
         # Check each embed field and track array lengths
         check_embed_field() {
           local field_name="$1"
           local field_value="$2"
           
+          echo "Debug: Checking field '$field_name' with value: ${field_value:0:50}..."
+          
           if [[ -n "$field_value" ]]; then
             if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+              echo "Debug: Field '$field_name' looks like a JSON array"
               # It's a JSON array - get its length
               local length=$(echo "$field_value" | jq '. | length' 2>/dev/null)
+              echo "Debug: jq returned length: '$length' for field '$field_name'"
               if [[ -n "$length" ]] && [[ "$length" =~ ^[0-9]+$ ]]; then
                 array_lengths["$field_name"]=$length
+                echo "Debug: Set array_lengths['$field_name']=$length"
                 [[ $length -gt $embed_count ]] && embed_count=$length
+              else
+                echo "Debug: Length validation failed for '$field_name' (length='$length')"
               fi
             else
+              echo "Debug: Field '$field_name' is a single value"
               # It's a single value - this is fine, it will be used for all embeds
               [[ $embed_count -lt 1 ]] && embed_count=1
             fi
+          else
+            echo "Debug: Field '$field_name' is empty"
           fi
         }
         
@@ -209,11 +219,15 @@ runs:
         check_embed_field "embed-timestamps" "${{ inputs.embed-timestamps }}"
         
         # Debug: Print array lengths detected
+        echo "Debug: After all checks, array_lengths has ${#array_lengths[@]} entries"
+        echo "Debug: array_lengths keys: ${!array_lengths[@]}"
         if [[ ${#array_lengths[@]} -gt 0 ]]; then
           echo "Debug: Detected ${#array_lengths[@]} fields with JSON arrays:"
           for field in "${!array_lengths[@]}"; do
             echo "  - $field: ${array_lengths[$field]} elements"
           done
+        else
+          echo "Debug: No JSON array fields were detected"
         fi
         
         # Validate that all JSON arrays have the same length
