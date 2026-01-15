@@ -403,8 +403,14 @@ runs:
           if [[ "$input" =~ ^\[.*\]$ ]]; then
             echo "$input" | jq -r ".[$index] // null"
           else
-            # Single value - return as-is
-            echo "$input" | jq -R '.'
+            # Single value - check if it's already valid JSON (object or array)
+            if echo "$input" | jq empty 2>/dev/null; then
+              # It's valid JSON, return as-is without quoting
+              echo "$input"
+            else
+              # It's a plain string, quote it
+              echo "$input" | jq -R '.'
+            fi
           fi
         }
         
