@@ -1,5 +1,5 @@
 ---
-name: Discord Notifier
+name: Discord Webhook Notifier
 author: Chase Roohms
 description: Send messages to Discord via webhook
 branding:
