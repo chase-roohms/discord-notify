@@ -443,21 +443,12 @@ runs:
           fi
         }
         
-        # Determine number of embeds
+        # Determine number of embeds by checking each field
         EMBED_COUNT=0
         
-        # Check each embed field to determine count
-        for field_value in \
-          "${{ inputs.embed-authors }}" \
-          "${{ inputs.embed-titles }}" \
-          "${{ inputs.embed-descriptions }}" \
-          "${{ inputs.embed-colors }}" \
-          "${{ inputs.embed-urls }}" \
-          "${{ inputs.embed-image-urls }}" \
-          "${{ inputs.embed-thumbnail-urls }}" \
-          "${{ inputs.embed-fields }}" \
-          "${{ inputs.embed-footers }}" \
-          "${{ inputs.embed-timestamps }}"; do
+        # Function to check field and update embed count
+        check_field_count() {
+          local field_value="$1"
           
           if [[ -n "$field_value" ]]; then
             if [[ "$field_value" =~ ^\[.*\]$ ]]; then
@@ -467,7 +458,19 @@ runs:
               [[ $EMBED_COUNT -lt 1 ]] && EMBED_COUNT=1
             fi
           fi
-        done
+        }
+        
+        # Check each embed field
+        check_field_count "${{ inputs.embed-authors }}"
+        check_field_count "${{ inputs.embed-titles }}"
+        check_field_count "${{ inputs.embed-descriptions }}"
+        check_field_count "${{ inputs.embed-colors }}"
+        check_field_count "${{ inputs.embed-urls }}"
+        check_field_count "${{ inputs.embed-image-urls }}"
+        check_field_count "${{ inputs.embed-thumbnail-urls }}"
+        check_field_count "${{ inputs.embed-fields }}"
+        check_field_count "${{ inputs.embed-footers }}"
+        check_field_count "${{ inputs.embed-timestamps }}"
         
         # Build embeds array if needed
         if [[ $EMBED_COUNT -gt 0 ]]; then
