@@ -178,12 +178,28 @@ runs:
           local field_name="$1"
           local field_value="$2"
           
-          echo "Debug: Checking field '$field_name' with value: ${field_value:0:50}..."
+          echo "Debug: Checking field '$field_name'"
+          echo "Debug: Full value: '$field_value'"
+          echo "Debug: Value length: ${#field_value}"
           
           if [[ -n "$field_value" ]]; then
+            # Check if it matches JSON array pattern (starts with [ and ends with ])
             if [[ "$field_value" =~ ^\[.*\]$ ]]; then
               echo "Debug: Field '$field_name' looks like a JSON array"
-              # It's a JSON array - get its length
+              
+              # Try to parse with jq and capture any errors
+              local jq_error
+              jq_error=$(echo "$field_value" | jq empty 2>&1)
+              local jq_status=$?
+              
+              if [[ $jq_status -ne 0 ]]; then
+                echo "Debug: jq parse error for '$field_name': $jq_error"
+                echo "Debug: This is NOT valid JSON. Valid JSON arrays require quoted strings, e.g., [\"value1\", \"value2\"]"
+                # Treat as invalid - don't count it
+                return
+              fi
+              
+              # It's a valid JSON array - get its length
               local length=$(echo "$field_value" | jq '. | length' 2>/dev/null)
               echo "Debug: jq returned length: '$length' for field '$field_name'"
               if [[ -n "$length" ]] && [[ "$length" =~ ^[0-9]+$ ]]; then
@@ -194,7 +210,7 @@ runs:
                 echo "Debug: Length validation failed for '$field_name' (length='$length')"
               fi
             else
-              echo "Debug: Field '$field_name' is a single value"
+              echo "Debug: Field '$field_name' is a single value (doesn't match ^\\[.*\\]$ pattern)"
               # It's a single value - this is fine, it will be used for all embeds
               [[ $embed_count -lt 1 ]] && embed_count=1
             fi
