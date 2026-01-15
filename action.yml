@@ -526,21 +526,34 @@ runs:
             EMBED='{}'
             
             # Get values for this embed index
-            AUTHOR=$(get_value_at_index "${{ inputs.embed-authors }}" $i)
-            AUTHOR_URL=$(get_value_at_index "${{ inputs.embed-author-urls }}" $i)
-            AUTHOR_ICON=$(get_value_at_index "${{ inputs.embed-author-icons }}" $i)
-            TITLE=$(get_value_at_index "${{ inputs.embed-titles }}" $i)
-            DESCRIPTION=$(get_value_at_index "${{ inputs.embed-descriptions }}" $i)
-            URL=$(get_value_at_index "${{ inputs.embed-urls }}" $i)
-            COLOR_HEX=$(get_value_at_index "${{ inputs.embed-colors }}" $i)
-            IMAGE_URL=$(get_value_at_index "${{ inputs.embed-image-urls }}" $i)
-            THUMBNAIL_URL=$(get_value_at_index "${{ inputs.embed-thumbnail-urls }}" $i)
+            # Parse inputs through jq to handle JSON arrays properly from GitHub Actions
+            AUTHOR_RAW=$(echo '${{ toJSON(inputs.embed-authors) }}' | jq -r 'if . == "" then "" else . end')
+            AUTHOR=$(get_value_at_index "$AUTHOR_RAW" $i)
+            AUTHOR_URL_RAW=$(echo '${{ toJSON(inputs.embed-author-urls) }}' | jq -r 'if . == "" then "" else . end')
+            AUTHOR_URL=$(get_value_at_index "$AUTHOR_URL_RAW" $i)
+            AUTHOR_ICON_RAW=$(echo '${{ toJSON(inputs.embed-author-icons) }}' | jq -r 'if . == "" then "" else . end')
+            AUTHOR_ICON=$(get_value_at_index "$AUTHOR_ICON_RAW" $i)
+            TITLE_RAW=$(echo '${{ toJSON(inputs.embed-titles) }}' | jq -r 'if . == "" then "" else . end')
+            TITLE=$(get_value_at_index "$TITLE_RAW" $i)
+            DESCRIPTION_RAW=$(echo '${{ toJSON(inputs.embed-descriptions) }}' | jq -r 'if . == "" then "" else . end')
+            DESCRIPTION=$(get_value_at_index "$DESCRIPTION_RAW" $i)
+            URL_RAW=$(echo '${{ toJSON(inputs.embed-urls) }}' | jq -r 'if . == "" then "" else . end')
+            URL=$(get_value_at_index "$URL_RAW" $i)
+            COLOR_HEX_RAW=$(echo '${{ toJSON(inputs.embed-colors) }}' | jq -r 'if . == "" then "" else . end')
+            COLOR_HEX=$(get_value_at_index "$COLOR_HEX_RAW" $i)
+            IMAGE_URL_RAW=$(echo '${{ toJSON(inputs.embed-image-urls) }}' | jq -r 'if . == "" then "" else . end')
+            IMAGE_URL=$(get_value_at_index "$IMAGE_URL_RAW" $i)
+            THUMBNAIL_URL_RAW=$(echo '${{ toJSON(inputs.embed-thumbnail-urls) }}' | jq -r 'if . == "" then "" else . end')
+            THUMBNAIL_URL=$(get_value_at_index "$THUMBNAIL_URL_RAW" $i)
             # Parse embed-fields through jq to handle JSON properly from GitHub Actions
             FIELDS_RAW=$(echo '${{ toJSON(inputs.embed-fields) }}' | jq -r 'if . == "" then "" else . end')
             FIELDS=$(get_value_at_index "$FIELDS_RAW" $i "embed-fields")
-            FOOTER=$(get_value_at_index "${{ inputs.embed-footers }}" $i)
-            FOOTER_ICON=$(get_value_at_index "${{ inputs.embed-footer-icons }}" $i)
-            TIMESTAMP=$(get_value_at_index "${{ inputs.embed-timestamps }}" $i)
+            FOOTER_RAW=$(echo '${{ toJSON(inputs.embed-footers) }}' | jq -r 'if . == "" then "" else . end')
+            FOOTER=$(get_value_at_index "$FOOTER_RAW" $i)
+            FOOTER_ICON_RAW=$(echo '${{ toJSON(inputs.embed-footer-icons) }}' | jq -r 'if . == "" then "" else . end')
+            FOOTER_ICON=$(get_value_at_index "$FOOTER_ICON_RAW" $i)
+            TIMESTAMP_RAW=$(echo '${{ toJSON(inputs.embed-timestamps) }}' | jq -r 'if . == "" then "" else . end')
+            TIMESTAMP=$(get_value_at_index "$TIMESTAMP_RAW" $i)
             
             # Build author object if any author field is present
             if [[ "$AUTHOR" != "null" ]] || [[ "$AUTHOR_URL" != "null" ]] || [[ "$AUTHOR_ICON" != "null" ]]; then
