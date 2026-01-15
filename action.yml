@@ -220,19 +220,19 @@ runs:
         }
         
         # Check all embed fields
-        check_embed_field "embed-authors" "${{ inputs.embed-authors }}"
-        check_embed_field "embed-author-urls" "${{ inputs.embed-author-urls }}"
-        check_embed_field "embed-author-icons" "${{ inputs.embed-author-icons }}"
-        check_embed_field "embed-titles" "${{ inputs.embed-titles }}"
-        check_embed_field "embed-descriptions" "${{ inputs.embed-descriptions }}"
-        check_embed_field "embed-urls" "${{ inputs.embed-urls }}"
-        check_embed_field "embed-colors" "${{ inputs.embed-colors }}"
-        check_embed_field "embed-image-urls" "${{ inputs.embed-image-urls }}"
-        check_embed_field "embed-thumbnail-urls" "${{ inputs.embed-thumbnail-urls }}"
-        check_embed_field "embed-fields" "${{ inputs.embed-fields }}"
-        check_embed_field "embed-footers" "${{ inputs.embed-footers }}"
-        check_embed_field "embed-footer-icons" "${{ inputs.embed-footer-icons }}"
-        check_embed_field "embed-timestamps" "${{ inputs.embed-timestamps }}"
+        check_embed_field "embed-authors" ${{ toJSON(inputs.embed-authors) }}
+        check_embed_field "embed-author-urls" ${{ toJSON(inputs.embed-author-urls) }}
+        check_embed_field "embed-author-icons" ${{ toJSON(inputs.embed-author-icons) }}
+        check_embed_field "embed-titles" ${{ toJSON(inputs.embed-titles) }}
+        check_embed_field "embed-descriptions" ${{ toJSON(inputs.embed-descriptions) }}
+        check_embed_field "embed-urls" ${{ toJSON(inputs.embed-urls) }}
+        check_embed_field "embed-colors" ${{ toJSON(inputs.embed-colors) }}
+        check_embed_field "embed-image-urls" ${{ toJSON(inputs.embed-image-urls) }}
+        check_embed_field "embed-thumbnail-urls" ${{ toJSON(inputs.embed-thumbnail-urls) }}
+        check_embed_field "embed-fields" ${{ toJSON(inputs.embed-fields) }}
+        check_embed_field "embed-footers" ${{ toJSON(inputs.embed-footers) }}
+        check_embed_field "embed-footer-icons" ${{ toJSON(inputs.embed-footer-icons) }}
+        check_embed_field "embed-timestamps" ${{ toJSON(inputs.embed-timestamps) }}
         
         # Debug: Print array lengths detected
         echo "Debug: After all checks, array_lengths has ${#array_lengths[@]} entries"
