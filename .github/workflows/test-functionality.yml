@@ -31,18 +31,6 @@ jobs:
             ~~Strikethrough text~~
             
             [Hyperlink](https://github.com)
-          embed-titles: 'Markdown Test'
-          embed-descriptions: |
-            **Bold text**
-            
-            *Italic text*
-            
-            __Underline text__
-            
-            ~~Strikethrough text~~
-            
-            [Hyperlink](https://github.com)
-          embed-colors: '95A5A6'
   
   test-basic-message:
     name: Test Basic Message
