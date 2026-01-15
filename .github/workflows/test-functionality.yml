@@ -1,0 +1,284 @@
+name: Test Functionality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test-basic-message:
+    name: Test Basic Message
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send simple text message
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: '✅ Basic message test - This is a simple text message from GitHub Actions'
+
+  test-custom-sender:
+    name: Test Custom Sender
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send message with custom username and avatar
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: 'This message has a custom username and avatar!'
+          username: 'GitHub Actions Bot'
+          avatar_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+
+  test-single-embed:
+    name: Test Single Embed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send message with single embed
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: 'Check out this embed!'
+          embed-titles: 'Test Successful'
+          embed-descriptions: 'This is a **bold** description with *italic* text and `code`'
+          embed-colors: '00FF00'
+          embed-urls: 'https://github.com'
+          embed-footers: 'GitHub Actions'
+          embed-timestamps: 'now'
+
+  test-embed-with-author:
+    name: Test Embed with Author
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send embed with author
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-authors: 'GitHub Actions'
+          embed-author-urls: 'https://github.com/features/actions'
+          embed-author-icons: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+          embed-titles: 'Build Status'
+          embed-descriptions: 'All tests passed successfully! 🎉'
+          embed-colors: '0099ff'
+
+  test-embed-with-images:
+    name: Test Embed with Images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send embed with thumbnail and image
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: 'Image Test'
+          embed-descriptions: 'This embed contains both a thumbnail and a main image'
+          embed-colors: 'FF6B6B'
+          embed-thumbnail-urls: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+          embed-image-urls: 'https://github.githubassets.com/images/modules/site/social-cards/github-social.png'
+          embed-footers: 'Image test completed'
+          embed-footer-icons: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+
+  test-embed-with-fields:
+    name: Test Embed with Fields
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send embed with fields
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: 'Workflow Information'
+          embed-descriptions: 'Details about this workflow run'
+          embed-colors: '9B59B6'
+          embed-fields: |
+            [
+              {"name": "Repository", "value": "${{ github.repository }}", "inline": true},
+              {"name": "Branch", "value": "${{ github.ref_name }}", "inline": true},
+              {"name": "Commit", "value": "${{ github.sha }}", "inline": false},
+              {"name": "Triggered by", "value": "${{ github.actor }}", "inline": true},
+              {"name": "Event", "value": "${{ github.event_name }}", "inline": true}
+            ]
+          embed-timestamps: 'now'
+
+  test-multiple-embeds:
+    name: Test Multiple Embeds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send message with multiple embeds
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: 'Here are three different embeds:'
+          embed-titles: '["First Embed", "Second Embed", "Third Embed"]'
+          embed-descriptions: '["This is the first embed", "This is the second embed", "This is the third embed"]'
+          embed-colors: '["FF0000", "00FF00", "0000FF"]'
+          embed-footers: '["Footer 1", "Footer 2", "Footer 3"]'
+
+  test-mixed-single-and-array:
+    name: Test Mixed Single and Array Values
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send multiple embeds with shared values
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: '["Embed 1", "Embed 2"]'
+          embed-descriptions: 'This description is shared by both embeds'
+          embed-colors: '["FFD700", "C0C0C0"]'
+          embed-footers: 'Common footer for all embeds'
+          embed-timestamps: 'now'
+
+  test-color-formats:
+    name: Test Different Color Formats
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test hex color without prefix
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: 'Color Test 1'
+          embed-descriptions: 'Hex color: FF4500'
+          embed-colors: 'FF4500'
+      
+      - name: Test hex color with # prefix
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: 'Color Test 2'
+          embed-descriptions: 'Hex color: #FF4500'
+          embed-colors: '#FF4500'
+      
+      - name: Test hex color with 0x prefix
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: 'Color Test 3'
+          embed-descriptions: 'Hex color: 0xFF4500'
+          embed-colors: '0xFF4500'
+
+  test-attachment-urls:
+    name: Test Attachment URLs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send message with attachment URLs
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: 'Message with attachments'
+          attachment-urls: |
+            https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+            https://github.githubassets.com/images/modules/site/social-cards/github-social.png
+
+  test-complex-scenario:
+    name: Test Complex Scenario
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Send complex message
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: '🚀 **Deployment Status Report**'
+          username: 'CI/CD Pipeline'
+          avatar_url: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+          embed-titles: '["Build Summary", "Test Results", "Deployment Info"]'
+          embed-descriptions: |
+            [
+              "All build steps completed successfully",
+              "All unit tests and integration tests passed",
+              "Application deployed to production environment"
+            ]
+          embed-colors: '["2ECC71", "3498DB", "9B59B6"]'
+          embed-fields: |
+            [
+              [
+                {"name": "Build Time", "value": "2m 34s", "inline": true},
+                {"name": "Build Status", "value": "✅ Success", "inline": true}
+              ],
+              [
+                {"name": "Tests Run", "value": "142", "inline": true},
+                {"name": "Tests Passed", "value": "142", "inline": true},
+                {"name": "Coverage", "value": "94.2%", "inline": true}
+              ],
+              [
+                {"name": "Environment", "value": "Production", "inline": true},
+                {"name": "Version", "value": "v1.2.3", "inline": true},
+                {"name": "Region", "value": "us-east-1", "inline": true}
+              ]
+            ]
+          embed-footers: '["Build completed", "Tests completed", "Deployment completed"]'
+          embed-timestamps: 'now'
+
+  test-timestamp-formats:
+    name: Test Timestamp Formats
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test "now" timestamp
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: 'Current Time'
+          embed-descriptions: 'Using "now" for timestamp'
+          embed-colors: '1ABC9C'
+          embed-timestamps: 'now'
+      
+      - name: Test ISO 8601 timestamp
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: 'Specific Time'
+          embed-descriptions: 'Using ISO 8601 format'
+          embed-colors: 'E74C3C'
+          embed-timestamps: '2026-01-01T00:00:00Z'
+
+  test-markdown-formatting:
+    name: Test Markdown Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test markdown in content and descriptions
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: |
+            **Bold text**
+            *Italic text*
+            __Underline text__
+            ~~Strikethrough text~~
+            [Hyperlink](https://github.com)
+            `Inline code`
+            ```
+            Code block
+            ```
+          embed-titles: 'Markdown Test'
+          embed-descriptions: |
+            This embed tests **bold**, *italic*, __underline__, ~~strikethrough~~, and [links](https://github.com).
+            
+            It also supports `inline code` and:
+            ```
+            Multi-line
+            Code blocks
+            ```
+          embed-colors: '95A5A6'
