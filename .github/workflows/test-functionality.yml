@@ -120,14 +120,7 @@ jobs:
           embed-titles: 'Workflow Information'
           embed-descriptions: 'Details about this workflow run'
           embed-colors: '9B59B6'
-          embed-fields: |
-            [
-              {"name": "Repository", "value": "${{ github.repository }}", "inline": true},
-              {"name": "Branch", "value": "${{ github.ref_name }}", "inline": true},
-              {"name": "Commit", "value": "${{ github.sha }}", "inline": false},
-              {"name": "Triggered by", "value": "${{ github.actor }}", "inline": true},
-              {"name": "Event", "value": "${{ github.event_name }}", "inline": true}
-            ]
+          embed-fields: '[{"name": "Repository", "value": "${{ github.repository }}", "inline": true}, {"name": "Branch", "value": "${{ github.ref_name }}", "inline": true}, {"name": "Commit", "value": "${{ github.sha }}", "inline": false}, {"name": "Triggered by", "value": "${{ github.actor }}", "inline": true}, {"name": "Event", "value": "${{ github.event_name }}", "inline": true} ]'
           embed-timestamps: 'now'
 
   test-multiple-embeds:
