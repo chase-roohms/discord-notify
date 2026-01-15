@@ -8,9 +8,42 @@ on:
   workflow_dispatch:
 
 jobs:
+  test-markdown-formatting:
+    name: Test Markdown Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
+      
+      - name: Test markdown in content and descriptions
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: '**Bold text**
+            *Italic text*
+            __Underline text__
+            ~~Strikethrough text~~
+            [Hyperlink](https://github.com)
+            \`Inline code\`
+            \`\`\`
+            Code block
+            \`\`\`'
+          embed-titles: 'Markdown Test'
+          embed-descriptions: 'This embed tests **bold**, *italic*, __underline__, ~~strikethrough~~, and [links](https://github.com).
+
+            It also supports \`inline code\` and:
+            \`\`\`
+            Multi-line
+            Code blocks
+            \`\`\`'
+          embed-colors: '95A5A6'
+  
   test-basic-message:
     name: Test Basic Message
     runs-on: ubuntu-latest
+    needs: test-markdown-formatting
     steps:
       - uses: actions/checkout@v4
       
@@ -278,36 +311,3 @@ jobs:
           embed-descriptions: 'Using ISO 8601 format'
           embed-colors: 'E74C3C'
           embed-timestamps: '2026-01-01T00:00:00Z'
-
-  test-markdown-formatting:
-    name: Test Markdown Formatting
-    runs-on: ubuntu-latest
-    needs: test-timestamp-formats
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Wait to avoid rate limiting
-        run: sleep 1
-      
-      - name: Test markdown in content and descriptions
-        uses: ./
-        with:
-          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          content: '**Bold text**
-            *Italic text*
-            __Underline text__
-            ~~Strikethrough text~~
-            [Hyperlink](https://github.com)
-            `Inline code`
-            ```
-            Code block
-            ```'
-          embed-titles: 'Markdown Test'
-          embed-descriptions: 'This embed tests **bold**, *italic*, __underline__, ~~strikethrough~~, and [links](https://github.com).
-
-            It also supports `inline code` and:
-            ```
-            Multi-line
-            Code blocks
-            ```'
-          embed-colors: '95A5A6'
