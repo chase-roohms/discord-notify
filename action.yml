@@ -183,6 +183,8 @@ runs:
               # It's a JSON array - get its length
               local length=$(echo "$field_value" | jq '. | length' 2>/dev/null)
               if [[ -n "$length" ]] && [[ "$length" =~ ^[0-9]+$ ]]; then
+                # Use declare -g to ensure we're modifying the global associative array
+                declare -gA array_lengths
                 array_lengths["$field_name"]=$length
                 [[ $length -gt $embed_count ]] && embed_count=$length
               fi
