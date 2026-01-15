@@ -54,7 +54,7 @@ jobs:
           webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
           content: 'Check out this embed!'
           embed-titles: 'Test Successful'
-          embed-descriptions: 'This is a **bold** description with *italic* text and \`code\`.'
+          embed-descriptions: 'This is a **bold** description with *italic* text and `code`.'
           embed-colors: '00FF00'
           embed-urls: 'https://github.com'
           embed-footers: 'GitHub Actions'
