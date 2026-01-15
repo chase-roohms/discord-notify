@@ -236,13 +236,13 @@ runs:
         if [[ -n "${{ inputs.embed-colors }}" ]]; then
           colors="${{ inputs.embed-colors }}"
           if [[ "$colors" =~ ^\[.*\]$ ]]; then
-            # JSON array
-            echo "$colors" | jq -r '.[]' 2>/dev/null | while IFS= read -r color; do
+            # JSON array - use process substitution to avoid subshell
+            while IFS= read -r color; do
               [[ -z "$color" ]] && continue
               if [[ ! "$color" =~ ^[0-9A-Fa-f]{6}$ ]] && [[ ! "$color" =~ ^#[0-9A-Fa-f]{6}$ ]] && [[ ! "$color" =~ ^0x[0-9A-Fa-f]{6}$ ]]; then
                 ERRORS+=("embed-colors contains invalid hex color: $color (expected format: FF0000, #FF0000, or 0xFF0000)")
               fi
-            done
+            done < <(echo "$colors" | jq -r '.[]' 2>/dev/null)
           else
             # Single value
             if [[ ! "$colors" =~ ^[0-9A-Fa-f]{6}$ ]] && [[ ! "$colors" =~ ^#[0-9A-Fa-f]{6}$ ]] && [[ ! "$colors" =~ ^0x[0-9A-Fa-f]{6}$ ]]; then
@@ -259,13 +259,13 @@ runs:
           [[ -z "$field_value" ]] && return
           
           if [[ "$field_value" =~ ^\[.*\]$ ]]; then
-            # JSON array
-            echo "$field_value" | jq -r '.[]' 2>/dev/null | while IFS= read -r url; do
+            # JSON array - use process substitution to avoid subshell
+            while IFS= read -r url; do
               [[ -z "$url" ]] && continue
               if [[ ! "$url" =~ ^https?:// ]]; then
                 ERRORS+=("$field_name contains invalid URL: $url (must start with http:// or https://)")
               fi
-            done
+            done < <(echo "$field_value" | jq -r '.[]' 2>/dev/null)
           else
             # Single value
             if [[ ! "$field_value" =~ ^https?:// ]]; then
@@ -285,13 +285,13 @@ runs:
         if [[ -n "${{ inputs.embed-timestamps }}" ]]; then
           timestamps="${{ inputs.embed-timestamps }}"
           if [[ "$timestamps" =~ ^\[.*\]$ ]]; then
-            # JSON array
-            echo "$timestamps" | jq -r '.[]' 2>/dev/null | while IFS= read -r ts; do
+            # JSON array - use process substitution to avoid subshell
+            while IFS= read -r ts; do
               [[ -z "$ts" ]] && continue
               if [[ "$ts" != "now" ]] && ! date -d "$ts" &>/dev/null 2>&1 && ! date -j -f "%Y-%m-%dT%H:%M:%S" "$ts" &>/dev/null 2>&1; then
                 ERRORS+=("embed-timestamps contains invalid timestamp: $ts (expected ISO 8601 format or 'now')")
               fi
-            done
+            done < <(echo "$timestamps" | jq -r '.[]' 2>/dev/null)
           else
             # Single value
             if [[ "$timestamps" != "now" ]] && ! date -d "$timestamps" &>/dev/null 2>&1 && ! date -j -f "%Y-%m-%dT%H:%M:%S" "$timestamps" &>/dev/null 2>&1; then
@@ -308,8 +308,8 @@ runs:
           else
             # Validate structure: should be array or array of arrays
             if [[ "$fields" =~ ^\[.*\]$ ]]; then
-              # Check if it's an array of arrays or array of objects
-              echo "$fields" | jq -r '.[]' 2>/dev/null | while IFS= read -r field; do
+              # Check if it's an array of arrays or array of objects - use process substitution
+              while IFS= read -r field; do
                 if [[ "$field" =~ ^\{.*\}$ ]]; then
                   # Validate field has required "name" and "value" properties
                   name=$(echo "$field" | jq -r '.name' 2>/dev/null)
@@ -318,7 +318,7 @@ runs:
                     ERRORS+=("embed-fields objects must contain 'name' and 'value' properties")
                   fi
                 fi
-              done
+              done < <(echo "$fields" | jq -r '.[]' 2>/dev/null)
             fi
           fi
         fi
