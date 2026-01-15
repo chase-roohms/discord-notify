@@ -492,21 +492,30 @@ runs:
         # Determine number of embeds
         EMBED_COUNT=0
         
-        # Parse embed-fields through jq to handle JSON properly
+        # Parse all embed inputs through jq to handle JSON arrays properly
+        AUTHORS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-authors) }}' | jq -r 'if . == "" then "" else . end')
+        TITLES_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-titles) }}' | jq -r 'if . == "" then "" else . end')
+        DESCRIPTIONS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-descriptions) }}' | jq -r 'if . == "" then "" else . end')
+        COLORS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-colors) }}' | jq -r 'if . == "" then "" else . end')
+        URLS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-urls) }}' | jq -r 'if . == "" then "" else . end')
+        IMAGE_URLS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-image-urls) }}' | jq -r 'if . == "" then "" else . end')
+        THUMBNAIL_URLS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-thumbnail-urls) }}' | jq -r 'if . == "" then "" else . end')
         FIELDS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-fields) }}' | jq -r 'if . == "" then "" else . end')
+        FOOTERS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-footers) }}' | jq -r 'if . == "" then "" else . end')
+        TIMESTAMPS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-timestamps) }}' | jq -r 'if . == "" then "" else . end')
         
         # Check each embed field to determine count
         for field_value in \
-          "${{ inputs.embed-authors }}" \
-          "${{ inputs.embed-titles }}" \
-          "${{ inputs.embed-descriptions }}" \
-          "${{ inputs.embed-colors }}" \
-          "${{ inputs.embed-urls }}" \
-          "${{ inputs.embed-image-urls }}" \
-          "${{ inputs.embed-thumbnail-urls }}" \
+          "$AUTHORS_FOR_COUNT" \
+          "$TITLES_FOR_COUNT" \
+          "$DESCRIPTIONS_FOR_COUNT" \
+          "$COLORS_FOR_COUNT" \
+          "$URLS_FOR_COUNT" \
+          "$IMAGE_URLS_FOR_COUNT" \
+          "$THUMBNAIL_URLS_FOR_COUNT" \
           "$FIELDS_FOR_COUNT" \
-          "${{ inputs.embed-footers }}" \
-          "${{ inputs.embed-timestamps }}"; do
+          "$FOOTERS_FOR_COUNT" \
+          "$TIMESTAMPS_FOR_COUNT"; do
           
           if [[ -n "$field_value" ]]; then
             if [[ "$field_value" =~ ^\[.*\]$ ]]; then
