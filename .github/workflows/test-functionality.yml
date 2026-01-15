@@ -23,8 +23,12 @@ jobs:
   test-custom-sender:
     name: Test Custom Sender
     runs-on: ubuntu-latest
+    needs: test-basic-message
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Send message with custom username and avatar
         uses: ./
@@ -37,8 +41,12 @@ jobs:
   test-single-embed:
     name: Test Single Embed
     runs-on: ubuntu-latest
+    needs: test-custom-sender
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Send message with single embed
         uses: ./
@@ -55,8 +63,12 @@ jobs:
   test-embed-with-author:
     name: Test Embed with Author
     runs-on: ubuntu-latest
+    needs: test-single-embed
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Send embed with author
         uses: ./
@@ -72,8 +84,12 @@ jobs:
   test-embed-with-images:
     name: Test Embed with Images
     runs-on: ubuntu-latest
+    needs: test-embed-with-author
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Send embed with thumbnail and image
         uses: ./
@@ -90,8 +106,12 @@ jobs:
   test-embed-with-fields:
     name: Test Embed with Fields
     runs-on: ubuntu-latest
+    needs: test-embed-with-images
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Send embed with fields
         uses: ./
@@ -113,8 +133,12 @@ jobs:
   test-multiple-embeds:
     name: Test Multiple Embeds
     runs-on: ubuntu-latest
+    needs: test-embed-with-fields
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Send message with multiple embeds
         uses: ./
@@ -129,8 +153,12 @@ jobs:
   test-mixed-single-and-array:
     name: Test Mixed Single and Array Values
     runs-on: ubuntu-latest
+    needs: test-multiple-embeds
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Send multiple embeds with shared values
         uses: ./
@@ -145,8 +173,12 @@ jobs:
   test-color-formats:
     name: Test Different Color Formats
     runs-on: ubuntu-latest
+    needs: test-mixed-single-and-array
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Test hex color without prefix
         uses: ./
@@ -156,6 +188,9 @@ jobs:
           embed-descriptions: 'Hex color: FF4500'
           embed-colors: 'FF4500'
       
+      - name: Wait between tests
+        run: sleep 1
+      
       - name: Test hex color with # prefix
         uses: ./
         with:
@@ -163,6 +198,9 @@ jobs:
           embed-titles: 'Color Test 2'
           embed-descriptions: 'Hex color: #FF4500'
           embed-colors: '#FF4500'
+      
+      - name: Wait between tests
+        run: sleep 1
       
       - name: Test hex color with 0x prefix
         uses: ./
@@ -175,8 +213,12 @@ jobs:
   test-attachment-urls:
     name: Test Attachment URLs
     runs-on: ubuntu-latest
+    needs: test-color-formats
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Send message with attachment URLs
         uses: ./
@@ -190,8 +232,12 @@ jobs:
   test-complex-scenario:
     name: Test Complex Scenario
     runs-on: ubuntu-latest
+    needs: test-attachment-urls
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Send complex message
         uses: ./
@@ -231,8 +277,12 @@ jobs:
   test-timestamp-formats:
     name: Test Timestamp Formats
     runs-on: ubuntu-latest
+    needs: test-complex-scenario
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Test "now" timestamp
         uses: ./
@@ -242,6 +292,9 @@ jobs:
           embed-descriptions: 'Using "now" for timestamp'
           embed-colors: '1ABC9C'
           embed-timestamps: 'now'
+      
+      - name: Wait between tests
+        run: sleep 1
       
       - name: Test ISO 8601 timestamp
         uses: ./
@@ -255,8 +308,12 @@ jobs:
   test-markdown-formatting:
     name: Test Markdown Formatting
     runs-on: ubuntu-latest
+    needs: test-timestamp-formats
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Wait to avoid rate limiting
+        run: sleep 1
       
       - name: Test markdown in content and descriptions
         uses: ./
