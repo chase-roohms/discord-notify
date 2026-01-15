@@ -328,6 +328,7 @@ runs:
           echo -e "${RED}Input validation failed with ${#ERRORS[@]} error(s):${NC}"
           for error in "${ERRORS[@]}"; do
             echo -e "${RED}  ✗ $error${NC}"
+            echo "::error::$error"
           done
           exit 1
         fi
