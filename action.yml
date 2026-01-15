@@ -492,6 +492,9 @@ runs:
         # Determine number of embeds
         EMBED_COUNT=0
         
+        # Parse embed-fields through jq to handle JSON properly
+        FIELDS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-fields) }}' | jq -r 'if . == "" then "" else . end')
+        
         # Check each embed field to determine count
         for field_value in \
           "${{ inputs.embed-authors }}" \
@@ -501,7 +504,7 @@ runs:
           "${{ inputs.embed-urls }}" \
           "${{ inputs.embed-image-urls }}" \
           "${{ inputs.embed-thumbnail-urls }}" \
-          "${{ toJSON(inputs.embed-fields) }}" \
+          "$FIELDS_FOR_COUNT" \
           "${{ inputs.embed-footers }}" \
           "${{ inputs.embed-timestamps }}"; do
           
@@ -532,7 +535,9 @@ runs:
             COLOR_HEX=$(get_value_at_index "${{ inputs.embed-colors }}" $i)
             IMAGE_URL=$(get_value_at_index "${{ inputs.embed-image-urls }}" $i)
             THUMBNAIL_URL=$(get_value_at_index "${{ inputs.embed-thumbnail-urls }}" $i)
-            FIELDS=$(get_value_at_index "${{ toJSON(inputs.embed-fields) }}" $i "embed-fields")
+            # Parse embed-fields through jq to handle JSON properly from GitHub Actions
+            FIELDS_RAW=$(echo '${{ toJSON(inputs.embed-fields) }}' | jq -r 'if . == "" then "" else . end')
+            FIELDS=$(get_value_at_index "$FIELDS_RAW" $i "embed-fields")
             FOOTER=$(get_value_at_index "${{ inputs.embed-footers }}" $i)
             FOOTER_ICON=$(get_value_at_index "${{ inputs.embed-footer-icons }}" $i)
             TIMESTAMP=$(get_value_at_index "${{ inputs.embed-timestamps }}" $i)
