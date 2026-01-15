@@ -504,6 +504,21 @@ runs:
         FOOTERS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-footers) }}' | jq -r 'if . == "" then "" else . end')
         TIMESTAMPS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-timestamps) }}' | jq -r 'if . == "" then "" else . end')
         
+        # Special handling for embed-fields count
+        if [[ -n "$FIELDS_FOR_COUNT" ]] && [[ "$FIELDS_FOR_COUNT" =~ ^\[.*\]$ ]]; then
+          # Check if first element is an array or object
+          first_elem=$(echo "$FIELDS_FOR_COUNT" | jq '.[0] | type' 2>/dev/null)
+          if [[ "$first_elem" == '"array"' ]]; then
+            # Array of arrays - multiple embeds
+            FIELDS_EMBED_COUNT=$(echo "$FIELDS_FOR_COUNT" | jq '. | length' 2>/dev/null || echo "0")
+          else
+            # Array of objects - single embed
+            FIELDS_EMBED_COUNT=1
+          fi
+        else
+          FIELDS_EMBED_COUNT=0
+        fi
+        
         # Check each embed field to determine count
         for field_value in \
           "$AUTHORS_FOR_COUNT" \
@@ -513,7 +528,6 @@ runs:
           "$URLS_FOR_COUNT" \
           "$IMAGE_URLS_FOR_COUNT" \
           "$THUMBNAIL_URLS_FOR_COUNT" \
-          "$FIELDS_FOR_COUNT" \
           "$FOOTERS_FOR_COUNT" \
           "$TIMESTAMPS_FOR_COUNT"; do
           
@@ -526,6 +540,9 @@ runs:
             fi
           fi
         done
+        
+        # Also consider embed-fields count
+        [[ $FIELDS_EMBED_COUNT -gt $EMBED_COUNT ]] && EMBED_COUNT=$FIELDS_EMBED_COUNT
         
         # Build embeds array if needed
         if [[ $EMBED_COUNT -gt 0 ]]; then
