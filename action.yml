@@ -1,0 +1,124 @@
+---
+name: Discord Notifier
+author: Chase Roohms
+description: Send messages to Discord via webhook
+branding:
+  icon: 'bell'
+  color: 'purple'
+
+inputs:
+  webhook_url:
+    description: 'The Discord webhook URL to send the message to'
+    required: true
+  #### Parts of the normal message, that are not in an embed ####
+  # All of these options are optional, but at least one of content, attachment-files,
+  # or attachment-urls must be provided if you do not provide any embeds below.
+  content:
+    description: 'The message to send to Discord, used in the "content" field if embeds are enabled.'
+    required: false
+    default: ''
+  username:
+    description: 'The username to display as the message sender'
+    required: false
+    default: ''
+  avatar_url:
+    description: 'The URL of the avatar image to use for the message sender'
+    required: false
+    default: ''
+  attachment-files:
+    description: 'A newline-separated list of files to upload and attach to the message (mutually exclusive with attachment-urls)'
+    required: false
+    default: ''
+  attachment-urls:
+    description: 'A newline-separated list of URLs to attach to the message (mutually exclusive with attachment-files)'
+    required: false
+    default: ''
+  
+  #### Embed options ####
+  # You can attach up to 10 embeds per message, each with their own options
+  # meaning that for each of these you can specify a single value, or a json
+  # array of values. If you specify a single value, it will be used for all embeds.
+  # If you specify a json array, it should contain one entry per embed.
+  # For example, to send 3 embeds with different titles, you would set
+  # embed-titles to '["Title 1", "Title 2", "Title 3"]'
+  # If you only wanted to set the title for the first embed, and leave the rest blank,
+  # you would set embed-titles to '["Title 1", "", ""]'
+  # If you wanted to send 2 embeds, both with the same title, you would set
+  # embed-titles to 'Common Title'
+
+  # Author fields
+  embed-authors:
+    description: 'The authors of the embeds to include in the message'
+    required: false
+    default: ''
+  embed-author-urls:
+    description: 'The author URLs of the embeds to include in the message'
+    required: false
+    default: ''
+  embed-author-icons:
+    description: 'The author icon URLs of the embeds to include in the message'
+    required: false
+    default: ''
+  
+  # Main embed fields
+  embed-titles:
+    description: 'The titles of the embeds to include in the message'
+    required: false
+    default: ''
+  embed-descriptions:
+    description: 'The descriptions of the embeds to include in the message'
+    required: false
+    default: ''
+  embed-urls:
+    description: 'The URLs of the embeds to include in the message'
+    required: false
+    default: ''
+  embed-colors:
+    description: 'The colors of the embeds to include in the message, as hex values (e.g., FF0000 for red)'
+    required: false
+    default: ''
+  embed-image-urls:
+    description: 'The main image URLs of the embeds to include in the message'
+    required: false
+    default: ''
+  embed-thumbnail-urls:
+    description: 'The thumbnail image URLs of the embeds to include in the message'
+    required: false
+    default: ''
+  
+  # Fields
+  embed-fields:
+    # Expecting JSON arrays like: [{"name": "Field 1", "value": "Value 1", "inline": true}, {"name": "Field 2", "value": "Value 2", "inline": false}]
+    description: 'The fields of the embeds to include in the message, as JSON arrays'
+    required: false
+    default: ''
+
+  # Footer fields
+  embed-footers:
+    description: 'The footers of the embeds to include in the message'
+    required: false
+    default: ''
+  embed-footer-icons:
+    description: 'The footer icon URLs of the embeds to include in the message'
+    required: false
+    default: ''
+  embed-timestamps:
+    description: 'The timestamps of the embeds to include in the message, as ISO 8601 strings. Or "now" for the current time.'
+    required: false
+    default: ''
+
+outputs: 
+  message_id:
+    description: 'The ID of the sent Discord message'
+    value: ${{ steps.send_discord_message.outputs.message_id }}
+  payload:
+    description: 'The full payload sent to Discord'
+    value: ${{ steps.send_discord_message.outputs.payload }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs
+      shell: bash
+      run: |
+        pass
