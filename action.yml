@@ -205,17 +205,32 @@ runs:
         check_embed_field "embed-footer-icons" "${{ inputs.embed-footer-icons }}"
         check_embed_field "embed-timestamps" "${{ inputs.embed-timestamps }}"
         
-        # Validate that all JSON arrays have the same length
+        # Debug: Print array lengths detected
         if [[ ${#array_lengths[@]} -gt 0 ]]; then
-          first_length=""
-          first_field=""
+          echo "Debug: Detected ${#array_lengths[@]} fields with JSON arrays:"
           for field in "${!array_lengths[@]}"; do
-            length="${array_lengths[$field]}"
-            if [[ -z "$first_length" ]]; then
-              first_length="$length"
-              first_field="$field"
-            elif [[ "$length" != "$first_length" ]]; then
-              ERRORS+=("Embed field array length mismatch: $first_field has $first_length elements, but $field has $length elements. All JSON array inputs must have the same length.")
+            echo "  - $field: ${array_lengths[$field]} elements"
+          done
+        fi
+        
+        # Validate that all JSON arrays have the same length
+        if [[ ${#array_lengths[@]} -gt 1 ]]; then
+          # Convert associative array to indexed arrays for comparison
+          lengths_found=()
+          fields_found=()
+          for field in "${!array_lengths[@]}"; do
+            lengths_found+=("${array_lengths[$field]}")
+            fields_found+=("$field")
+          done
+          
+          # Compare all lengths to the first one
+          first_length="${lengths_found[0]}"
+          first_field="${fields_found[0]}"
+          
+          for i in "${!lengths_found[@]}"; do
+            if [[ "${lengths_found[$i]}" != "$first_length" ]]; then
+              ERRORS+=("Embed field array length mismatch: $first_field has $first_length elements, but ${fields_found[$i]} has ${lengths_found[$i]} elements. All JSON array inputs must have the same length.")
+              break
             fi
           done
         fi
@@ -324,6 +339,7 @@ runs:
         fi
         
         # Report all errors
+        echo "Debug: Total errors collected: ${#ERRORS[@]}"
         if [[ ${#ERRORS[@]} -gt 0 ]]; then
           echo -e "${RED}Input validation failed with ${#ERRORS[@]} error(s):${NC}"
           for error in "${ERRORS[@]}"; do
