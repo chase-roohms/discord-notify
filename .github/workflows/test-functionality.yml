@@ -203,29 +203,10 @@ jobs:
           embed-descriptions: 'Hex color: 0xFF4500'
           embed-colors: '0xFF4500'
 
-  test-attachment-urls:
-    name: Test Attachment URLs
-    runs-on: ubuntu-latest
-    needs: test-color-formats
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Wait to avoid rate limiting
-        run: sleep 1
-      
-      - name: Send message with attachment URLs
-        uses: ./
-        with:
-          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          content: 'Message with attachments'
-          attachment-urls: |
-            https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
-            https://github.githubassets.com/images/modules/site/social-cards/github-social.png
-
   test-complex-scenario:
     name: Test Complex Scenario
     runs-on: ubuntu-latest
-    needs: test-attachment-urls
+    needs: test-color-formats
     steps:
       - uses: actions/checkout@v4
       

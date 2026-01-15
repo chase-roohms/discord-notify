@@ -11,8 +11,8 @@ inputs:
     description: 'The Discord webhook URL to send the message to'
     required: true
   #### Parts of the normal message, that are not in an embed ####
-  # All of these options are optional, but at least one of content, attachment-files,
-  # or attachment-urls must be provided if you do not provide any embeds below.
+  # All of these options are optional, but content must be provided if you do 
+  # not provide any embeds below.
   content:
     description: 'The message to send to Discord, used in the "content" field if embeds are enabled.'
     required: false
@@ -23,14 +23,6 @@ inputs:
     default: ''
   avatar_url:
     description: 'The URL of the avatar image to use for the message sender'
-    required: false
-    default: ''
-  attachment-files:
-    description: 'A newline-separated list of files to upload and attach to the message (mutually exclusive with attachment-urls)'
-    required: false
-    default: ''
-  attachment-urls:
-    description: 'A newline-separated list of URLs to attach to the message (mutually exclusive with attachment-files)'
     required: false
     default: ''
   
@@ -147,31 +139,6 @@ runs:
           ERRORS+=("avatar_url must be a valid URL starting with http:// or https://")
         fi
         
-        # Validate attachment-files and attachment-urls are mutually exclusive
-        if [[ -n "${{ inputs.attachment-files }}" ]] && [[ -n "${{ inputs.attachment-urls }}" ]]; then
-          ERRORS+=("attachment-files and attachment-urls are mutually exclusive - provide only one")
-        fi
-        
-        # Validate attachment-urls format if provided
-        if [[ -n "${{ inputs.attachment-urls }}" ]]; then
-          while IFS= read -r url; do
-            [[ -z "$url" ]] && continue
-            if [[ ! "$url" =~ ^https?:// ]]; then
-              ERRORS+=("attachment-urls contains invalid URL: $url (must start with http:// or https://)")
-            fi
-          done <<< "${{ inputs.attachment-urls }}"
-        fi
-        
-        # Validate attachment-files exist if provided
-        if [[ -n "${{ inputs.attachment-files }}" ]]; then
-          while IFS= read -r file; do
-            [[ -z "$file" ]] && continue
-            if [[ ! -f "$file" ]]; then
-              ERRORS+=("attachment-files references non-existent file: $file")
-            fi
-          done <<< "${{ inputs.attachment-files }}"
-        fi
-        
         # Validate embed inputs
         embed_count=0
         declare -A array_lengths
@@ -259,10 +226,10 @@ runs:
           ERRORS+=("Discord allows a maximum of 10 embeds per message, but $embed_count embeds were specified")
         fi
         
-        # If no embeds, validate that at least one of content, attachment-files, or attachment-urls is provided
+        # If no embeds, validate that content is provided
         if [[ $embed_count -eq 0 ]]; then
-          if [[ -z "${{ inputs.content }}" ]] && [[ -z "${{ inputs.attachment-files }}" ]] && [[ -z "${{ inputs.attachment-urls }}" ]]; then
-            ERRORS+=("At least one of content, attachment-files, attachment-urls, or embed fields must be provided")
+          if [[ -z "${{ inputs.content }}" ]]; then
+            ERRORS+=("Content must be provided if no embeds are specified")
           fi
         fi
         
