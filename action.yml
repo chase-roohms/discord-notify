@@ -108,9 +108,9 @@ inputs:
     default: ''
 
 outputs: 
-  message_id:
-    description: 'The ID of the sent Discord message'
-    value: ${{ steps.send_discord_message.outputs.message_id }}
+  status_code:
+    description: 'The HTTP status code of the Discord message request'
+    value: ${{ steps.send_discord_message.outputs.status_code }}
   payload:
     description: 'The full payload sent to Discord'
     value: ${{ steps.build_payload.outputs.payload }}
@@ -571,20 +571,36 @@ runs:
         PAYLOAD_FILE="${{ steps.build_payload.outputs.payload_file }}"
         PAYLOAD_CONTENT=$(cat "$PAYLOAD_FILE")
 
-        # Prepare curl command
-        discord_response=$(curl -s -X POST "${{ inputs.webhook_url }}" \
-                                   -H "Content-Type: application/json" \
-                                   -d "$PAYLOAD_CONTENT")
+        # Send request and capture both status code and response
+        HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ inputs.webhook_url }}" \
+                             -H "Content-Type: application/json" \
+                             -d "$PAYLOAD_CONTENT")
         
-        # Check for errors in response
-        if echo "$discord_response" | jq -e 'has("id")' >/dev/null 2>&1; then
-          MESSAGE_ID=$(echo "$discord_response" | jq -r '.id')
-          echo "message_id=$MESSAGE_ID" >> $GITHUB_OUTPUT
-          echo "Discord message sent successfully with ID: $MESSAGE_ID"
+        # Extract status code (last line) and body (everything else)
+        HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)
+        echo "status_code=$HTTP_CODE" >> $GITHUB_OUTPUT
+        RESPONSE_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+        
+        # Check if request was successful (200-299 status codes)
+        if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then
+          echo "Discord message sent successfully (HTTP $HTTP_CODE)"
+          
+          # Try to extract message ID if response body exists
+          if [[ -n "$RESPONSE_BODY" ]] && echo "$RESPONSE_BODY" | jq -e 'has("id")' >/dev/null 2>&1; then
+            MESSAGE_ID=$(echo "$RESPONSE_BODY" | jq -r '.id')
+            echo "message_id=$MESSAGE_ID" >> $GITHUB_OUTPUT
+            echo "Message ID: $MESSAGE_ID"
+          else
+            echo "message_id=" >> $GITHUB_OUTPUT
+            echo "Note: No message ID returned (webhook may not have wait=true parameter)"
+          fi
         else
-          echo "Failed to send Discord message. Response:"
-          echo "$discord_response"
-          echo "::error::Failed to send Discord message"
+          echo "Failed to send Discord message (HTTP $HTTP_CODE)"
+          if [[ -n "$RESPONSE_BODY" ]]; then
+            echo "Error response:"
+            echo "$RESPONSE_BODY" | jq '.' 2>/dev/null || echo "$RESPONSE_BODY"
+          fi
+          echo "::error::Failed to send Discord message (HTTP $HTTP_CODE)"
           exit 1
         fi
 
