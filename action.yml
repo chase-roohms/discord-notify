@@ -250,10 +250,8 @@ runs:
           if [[ "$colors" =~ ^\[.*\]$ ]]; then
             # JSON array - use process substitution to avoid subshell
             jq_output=$(echo "$colors" | jq -r '.[]' 2>/dev/null || echo "")
-            echo "Debug: jq_output for embed-colors='$jq_output'"
             if [[ -n "$jq_output" ]]; then
               while IFS= read -r color; do
-                echo "Debug: color='$color'"
                 [[ -z "$color" ]] && continue
                 if [[ ! "$color" =~ ^[0-9A-Fa-f]{6}$ ]] && [[ ! "$color" =~ ^#[0-9A-Fa-f]{6}$ ]] && [[ ! "$color" =~ ^0x[0-9A-Fa-f]{6}$ ]]; then
                   ERRORS+=("embed-colors contains invalid hex color: $color (expected format: FF0000, #FF0000, or 0xFF0000)")
