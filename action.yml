@@ -113,7 +113,10 @@ outputs:
     value: ${{ steps.send_discord_message.outputs.message_id }}
   payload:
     description: 'The full payload sent to Discord'
-    value: ${{ steps.send_discord_message.outputs.payload }}
+    value: ${{ steps.build_payload.outputs.payload }}
+  payload_file:
+    description: 'The file path of the payload sent to Discord'
+    value: ${{ steps.build_payload.outputs.payload_file }}
 
 runs:
   using: composite
@@ -363,3 +366,225 @@ runs:
         fi
         
         echo -e "${YELLOW}✓ All inputs validated successfully${NC}"
+    
+    - name: Build Discord Payload
+      id: build_payload
+      shell: bash
+      run: |
+        # Use jq to build the JSON payload based on inputs
+        
+        # Initialize base payload
+        PAYLOAD='{}'
+        
+        # Add basic fields if provided
+        if [[ -n "${{ inputs.username }}" ]]; then
+          PAYLOAD=$(echo "$PAYLOAD" | jq --arg username "${{ inputs.username }}" '. + {username: $username}')
+        fi
+        
+        if [[ -n "${{ inputs.avatar_url }}" ]]; then
+          PAYLOAD=$(echo "$PAYLOAD" | jq --arg avatar_url "${{ inputs.avatar_url }}" '. + {avatar_url: $avatar_url}')
+        fi
+        
+        if [[ -n "${{ inputs.content }}" ]]; then
+          PAYLOAD=$(echo "$PAYLOAD" | jq --arg content "${{ inputs.content }}" '. + {content: $content}')
+        fi
+        
+        # Helper function to get value from single or array
+        get_value_at_index() {
+          local input="$1"
+          local index="$2"
+          
+          if [[ -z "$input" ]]; then
+            echo "null"
+            return
+          fi
+          
+          # Check if it's a JSON array
+          if [[ "$input" =~ ^\[.*\]$ ]]; then
+            echo "$input" | jq -r ".[$index] // null"
+          else
+            # Single value - return as-is
+            echo "$input" | jq -R '.'
+          fi
+        }
+        
+        # Helper function to convert hex color to decimal
+        hex_to_decimal() {
+          local color="$1"
+          
+          if [[ -z "$color" ]] || [[ "$color" == "null" ]]; then
+            echo "null"
+            return
+          fi
+          
+          # Remove # or 0x prefix if present
+          color="${color#\#}"
+          color="${color#0x}"
+          color="${color#0X}"
+          
+          # Convert hex to decimal
+          echo $((16#$color))
+        }
+        
+        # Helper function to convert timestamp
+        convert_timestamp() {
+          local ts="$1"
+          
+          if [[ -z "$ts" ]] || [[ "$ts" == "null" ]]; then
+            echo "null"
+            return
+          fi
+          
+          if [[ "$ts" == "now" ]]; then
+            # Generate current timestamp in ISO 8601 format
+            date -u +"%Y-%m-%dT%H:%M:%SZ" | jq -R '.'
+          else
+            echo "$ts" | jq -R '.'
+          fi
+        }
+        
+        # Determine number of embeds
+        EMBED_COUNT=0
+        
+        # Check each embed field to determine count
+        for field_value in \
+          "${{ inputs.embed-authors }}" \
+          "${{ inputs.embed-titles }}" \
+          "${{ inputs.embed-descriptions }}" \
+          "${{ inputs.embed-colors }}" \
+          "${{ inputs.embed-urls }}" \
+          "${{ inputs.embed-image-urls }}" \
+          "${{ inputs.embed-thumbnail-urls }}" \
+          "${{ inputs.embed-fields }}" \
+          "${{ inputs.embed-footers }}" \
+          "${{ inputs.embed-timestamps }}"; do
+          
+          if [[ -n "$field_value" ]]; then
+            if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+              length=$(echo "$field_value" | jq '. | length' 2>/dev/null || echo "0")
+              [[ $length -gt $EMBED_COUNT ]] && EMBED_COUNT=$length
+            else
+              [[ $EMBED_COUNT -lt 1 ]] && EMBED_COUNT=1
+            fi
+          fi
+        done
+        
+        # Build embeds array if needed
+        if [[ $EMBED_COUNT -gt 0 ]]; then
+          EMBEDS='[]'
+          
+          for ((i=0; i<EMBED_COUNT; i++)); do
+            EMBED='{}'
+            
+            # Get values for this embed index
+            AUTHOR=$(get_value_at_index "${{ inputs.embed-authors }}" $i)
+            AUTHOR_URL=$(get_value_at_index "${{ inputs.embed-author-urls }}" $i)
+            AUTHOR_ICON=$(get_value_at_index "${{ inputs.embed-author-icons }}" $i)
+            TITLE=$(get_value_at_index "${{ inputs.embed-titles }}" $i)
+            DESCRIPTION=$(get_value_at_index "${{ inputs.embed-descriptions }}" $i)
+            URL=$(get_value_at_index "${{ inputs.embed-urls }}" $i)
+            COLOR_HEX=$(get_value_at_index "${{ inputs.embed-colors }}" $i)
+            IMAGE_URL=$(get_value_at_index "${{ inputs.embed-image-urls }}" $i)
+            THUMBNAIL_URL=$(get_value_at_index "${{ inputs.embed-thumbnail-urls }}" $i)
+            FIELDS=$(get_value_at_index "${{ inputs.embed-fields }}" $i)
+            FOOTER=$(get_value_at_index "${{ inputs.embed-footers }}" $i)
+            FOOTER_ICON=$(get_value_at_index "${{ inputs.embed-footer-icons }}" $i)
+            TIMESTAMP=$(get_value_at_index "${{ inputs.embed-timestamps }}" $i)
+            
+            # Build author object if any author field is present
+            if [[ "$AUTHOR" != "null" ]] || [[ "$AUTHOR_URL" != "null" ]] || [[ "$AUTHOR_ICON" != "null" ]]; then
+              AUTHOR_OBJ='{}'
+              [[ "$AUTHOR" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --argjson name "$AUTHOR" '. + {name: $name}')
+              [[ "$AUTHOR_URL" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --argjson url "$AUTHOR_URL" '. + {url: $url}')
+              [[ "$AUTHOR_ICON" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --argjson icon_url "$AUTHOR_ICON" '. + {icon_url: $icon_url}')
+              EMBED=$(echo "$EMBED" | jq --argjson author "$AUTHOR_OBJ" '. + {author: $author}')
+            fi
+            
+            # Add basic embed fields
+            [[ "$TITLE" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson title "$TITLE" '. + {title: $title}')
+            [[ "$DESCRIPTION" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson description "$DESCRIPTION" '. + {description: $description}')
+            [[ "$URL" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson url "$URL" '. + {url: $url}')
+            
+            # Add color (convert hex to decimal)
+            if [[ "$COLOR_HEX" != "null" ]]; then
+              COLOR_DEC=$(hex_to_decimal "$(echo "$COLOR_HEX" | jq -r '.')")
+              [[ "$COLOR_DEC" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson color "$COLOR_DEC" '. + {color: $color}')
+            fi
+            
+            # Add fields array if present
+            if [[ "$FIELDS" != "null" ]]; then
+              # Fields should already be a JSON array
+              EMBED=$(echo "$EMBED" | jq --argjson fields "$FIELDS" '. + {fields: $fields}')
+            fi
+            
+            # Add thumbnail if present
+            if [[ "$THUMBNAIL_URL" != "null" ]]; then
+              THUMBNAIL_OBJ=$(jq -n --argjson url "$THUMBNAIL_URL" '{url: $url}')
+              EMBED=$(echo "$EMBED" | jq --argjson thumbnail "$THUMBNAIL_OBJ" '. + {thumbnail: $thumbnail}')
+            fi
+            
+            # Add image if present
+            if [[ "$IMAGE_URL" != "null" ]]; then
+              IMAGE_OBJ=$(jq -n --argjson url "$IMAGE_URL" '{url: $url}')
+              EMBED=$(echo "$EMBED" | jq --argjson image "$IMAGE_OBJ" '. + {image: $image}')
+            fi
+            
+            # Build footer object if any footer field is present
+            if [[ "$FOOTER" != "null" ]] || [[ "$FOOTER_ICON" != "null" ]]; then
+              FOOTER_OBJ='{}'
+              [[ "$FOOTER" != "null" ]] && FOOTER_OBJ=$(echo "$FOOTER_OBJ" | jq --argjson text "$FOOTER" '. + {text: $text}')
+              [[ "$FOOTER_ICON" != "null" ]] && FOOTER_OBJ=$(echo "$FOOTER_OBJ" | jq --argjson icon_url "$FOOTER_ICON" '. + {icon_url: $icon_url}')
+              EMBED=$(echo "$EMBED" | jq --argjson footer "$FOOTER_OBJ" '. + {footer: $footer}')
+            fi
+            
+            # Add timestamp if present
+            if [[ "$TIMESTAMP" != "null" ]]; then
+              TS_VALUE=$(convert_timestamp "$(echo "$TIMESTAMP" | jq -r '.')")
+              [[ "$TS_VALUE" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson timestamp "$TS_VALUE" '. + {timestamp: $timestamp}')
+            fi
+            
+            # Add embed to embeds array
+            EMBEDS=$(echo "$EMBEDS" | jq --argjson embed "$EMBED" '. + [$embed]')
+          done
+          
+          # Add embeds to payload
+          PAYLOAD=$(echo "$PAYLOAD" | jq --argjson embeds "$EMBEDS" '. + {embeds: $embeds}')
+        fi
+        
+        # Output payload to file for next step
+        echo "$PAYLOAD" > ${{ runner.temp }}/discord_payload.json
+        echo "payload_file=${{ runner.temp }}/discord_payload.json" >> $GITHUB_OUTPUT
+        
+        # Also output the payload as a string for the output
+        echo "payload<<EOF" >> $GITHUB_OUTPUT
+        echo "$PAYLOAD" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        
+        echo "Discord payload built successfully"
+        echo "$PAYLOAD" | jq '.'
+        
+    - name: Send Discord Message
+      id: send_discord_message
+      shell: bash
+      run: |
+        # Read payload from file
+        PAYLOAD_FILE="${{ steps.build_payload.outputs.payload_file }}"
+        PAYLOAD_CONTENT=$(cat "$PAYLOAD_FILE")
+
+        # Prepare curl command
+        discord_response=$(curl -s -X POST "${{ inputs.webhook_url }}" \
+                                   -H "Content-Type: application/json" \
+                                   -d "$PAYLOAD_CONTENT")
+        
+        # Check for errors in response
+        if echo "$discord_response" | jq -e 'has("id")' >/dev/null 2>&1; then
+          MESSAGE_ID=$(echo "$discord_response" | jq -r '.id')
+          echo "message_id=$MESSAGE_ID" >> $GITHUB_OUTPUT
+          echo "Discord message sent successfully with ID: $MESSAGE_ID"
+        else
+          echo "Failed to send Discord message. Response:"
+          echo "$discord_response"
+          echo "::error::Failed to send Discord message"
+          exit 1
+        fi
+
