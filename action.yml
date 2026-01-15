@@ -245,11 +245,12 @@ runs:
         fi
         
         # Validate embed-colors format (hex values)
-        if [[ -n "${{ inputs.embed-colors }}" ]]; then
-          colors="${{ inputs.embed-colors }}"
+        if [[ -n "${{ toJson(inputs.embed-colors) }}" ]]; then
+          colors="${{ toJson(inputs.embed-colors) }}"
           if [[ "$colors" =~ ^\[.*\]$ ]]; then
             # JSON array - use process substitution to avoid subshell
             jq_output=$(echo "$colors" | jq -r '.[]' 2>/dev/null || echo "")
+            echo "Debug: jq_output for embed-colors='$jq_output'"
             if [[ -n "$jq_output" ]]; then
               while IFS= read -r color; do
                 echo "Debug: color='$color'"
