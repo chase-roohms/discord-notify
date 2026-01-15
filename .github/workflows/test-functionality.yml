@@ -21,9 +21,9 @@ jobs:
         uses: ./
         with:
           webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          content: "**Bold text**\n*Italic text*\n__Underline text__\n~~Strikethrough text~~\n[Hyperlink](https://github.com)\n\`Inline code\`\n\`\`\`\nCode block\n\`\`\`"
+          content: "**Bold text**\n*Italic text*\n__Underline text__\n~~Strikethrough text~~\n[Hyperlink](https://github.com)\n\\`Inline code\\`\n\\`\\`\\`\nCode block\n\\`\\`\\`"
           embed-titles: 'Markdown Test'
-          embed-descriptions: "This embed tests **bold**, *italic*, __underline__, ~~strikethrough~~, and [links](https://github.com).\n\nIt also supports \`inline code\` and:\n\`\`\`\nMulti-line\nCode blocks\n\`\`\`"
+          embed-descriptions: "This embed tests **bold**, *italic*, __underline__, ~~strikethrough~~, and [links](https://github.com).\n\nIt also supports \\`inline code\\` and:\n\\`\\`\\`\nMulti-line\nCode blocks\n\\`\\`\\`"
           embed-colors: '95A5A6'
   
   test-basic-message:
