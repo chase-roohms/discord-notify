@@ -121,4 +121,215 @@ runs:
     - name: Validate inputs
       shell: bash
       run: |
-        pass
+        # Color codes for output
+        RED='\033[0;31m'
+        YELLOW='\033[1;33m'
+        NC='\033[0m' # No Color
+        
+        # Track validation errors
+        ERRORS=()
+        
+        # Validate webhook_url (required)
+        if [[ -z "${{ inputs.webhook_url }}" ]]; then
+          ERRORS+=("webhook_url is required")
+        elif [[ ! "${{ inputs.webhook_url }}" =~ ^https://discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$ ]]; then
+          ERRORS+=("webhook_url must be a valid Discord webhook URL (format: https://discord.com/api/webhooks/{id}/{token})")
+        fi
+        
+        # Validate avatar_url if provided
+        if [[ -n "${{ inputs.avatar_url }}" ]] && [[ ! "${{ inputs.avatar_url }}" =~ ^https?:// ]]; then
+          ERRORS+=("avatar_url must be a valid URL starting with http:// or https://")
+        fi
+        
+        # Validate attachment-files and attachment-urls are mutually exclusive
+        if [[ -n "${{ inputs.attachment-files }}" ]] && [[ -n "${{ inputs.attachment-urls }}" ]]; then
+          ERRORS+=("attachment-files and attachment-urls are mutually exclusive - provide only one")
+        fi
+        
+        # Validate attachment-urls format if provided
+        if [[ -n "${{ inputs.attachment-urls }}" ]]; then
+          while IFS= read -r url; do
+            [[ -z "$url" ]] && continue
+            if [[ ! "$url" =~ ^https?:// ]]; then
+              ERRORS+=("attachment-urls contains invalid URL: $url (must start with http:// or https://)")
+            fi
+          done <<< "${{ inputs.attachment-urls }}"
+        fi
+        
+        # Validate attachment-files exist if provided
+        if [[ -n "${{ inputs.attachment-files }}" ]]; then
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            if [[ ! -f "$file" ]]; then
+              ERRORS+=("attachment-files references non-existent file: $file")
+            fi
+          done <<< "${{ inputs.attachment-files }}"
+        fi
+        
+        # Validate embed inputs
+        embed_count=0
+        declare -A array_lengths
+        
+        # Check each embed field and track array lengths
+        check_embed_field() {
+          local field_name="$1"
+          local field_value="$2"
+          
+          if [[ -n "$field_value" ]]; then
+            if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+              # It's a JSON array - get its length
+              local length=$(echo "$field_value" | jq '. | length' 2>/dev/null)
+              if [[ -n "$length" ]] && [[ "$length" =~ ^[0-9]+$ ]]; then
+                array_lengths["$field_name"]=$length
+                [[ $length -gt $embed_count ]] && embed_count=$length
+              fi
+            else
+              # It's a single value - this is fine, it will be used for all embeds
+              [[ $embed_count -lt 1 ]] && embed_count=1
+            fi
+          fi
+        }
+        
+        # Check all embed fields
+        check_embed_field "embed-authors" "${{ inputs.embed-authors }}"
+        check_embed_field "embed-author-urls" "${{ inputs.embed-author-urls }}"
+        check_embed_field "embed-author-icons" "${{ inputs.embed-author-icons }}"
+        check_embed_field "embed-titles" "${{ inputs.embed-titles }}"
+        check_embed_field "embed-descriptions" "${{ inputs.embed-descriptions }}"
+        check_embed_field "embed-urls" "${{ inputs.embed-urls }}"
+        check_embed_field "embed-colors" "${{ inputs.embed-colors }}"
+        check_embed_field "embed-image-urls" "${{ inputs.embed-image-urls }}"
+        check_embed_field "embed-thumbnail-urls" "${{ inputs.embed-thumbnail-urls }}"
+        check_embed_field "embed-fields" "${{ inputs.embed-fields }}"
+        check_embed_field "embed-footers" "${{ inputs.embed-footers }}"
+        check_embed_field "embed-footer-icons" "${{ inputs.embed-footer-icons }}"
+        check_embed_field "embed-timestamps" "${{ inputs.embed-timestamps }}"
+        
+        # Validate that all JSON arrays have the same length
+        if [[ ${#array_lengths[@]} -gt 0 ]]; then
+          first_length=""
+          first_field=""
+          for field in "${!array_lengths[@]}"; do
+            length="${array_lengths[$field]}"
+            if [[ -z "$first_length" ]]; then
+              first_length="$length"
+              first_field="$field"
+            elif [[ "$length" != "$first_length" ]]; then
+              ERRORS+=("Embed field array length mismatch: $first_field has $first_length elements, but $field has $length elements. All JSON array inputs must have the same length.")
+            fi
+          done
+        fi
+        
+        # Validate embed count limit (max 10 embeds per Discord message)
+        if [[ $embed_count -gt 10 ]]; then
+          ERRORS+=("Discord allows a maximum of 10 embeds per message, but $embed_count embeds were specified")
+        fi
+        
+        # If no embeds, validate that at least one of content, attachment-files, or attachment-urls is provided
+        if [[ $embed_count -eq 0 ]]; then
+          if [[ -z "${{ inputs.content }}" ]] && [[ -z "${{ inputs.attachment-files }}" ]] && [[ -z "${{ inputs.attachment-urls }}" ]]; then
+            ERRORS+=("At least one of content, attachment-files, attachment-urls, or embed fields must be provided")
+          fi
+        fi
+        
+        # Validate embed-colors format (hex values)
+        if [[ -n "${{ inputs.embed-colors }}" ]]; then
+          colors="${{ inputs.embed-colors }}"
+          if [[ "$colors" =~ ^\[.*\]$ ]]; then
+            # JSON array
+            echo "$colors" | jq -r '.[]' 2>/dev/null | while IFS= read -r color; do
+              [[ -z "$color" ]] && continue
+              if [[ ! "$color" =~ ^[0-9A-Fa-f]{6}$ ]] && [[ ! "$color" =~ ^#[0-9A-Fa-f]{6}$ ]] && [[ ! "$color" =~ ^0x[0-9A-Fa-f]{6}$ ]]; then
+                ERRORS+=("embed-colors contains invalid hex color: $color (expected format: FF0000, #FF0000, or 0xFF0000)")
+              fi
+            done
+          else
+            # Single value
+            if [[ ! "$colors" =~ ^[0-9A-Fa-f]{6}$ ]] && [[ ! "$colors" =~ ^#[0-9A-Fa-f]{6}$ ]] && [[ ! "$colors" =~ ^0x[0-9A-Fa-f]{6}$ ]]; then
+              ERRORS+=("embed-colors contains invalid hex color: $colors (expected format: FF0000, #FF0000, or 0xFF0000)")
+            fi
+          fi
+        fi
+        
+        # Validate URL fields
+        validate_url_field() {
+          local field_name="$1"
+          local field_value="$2"
+          
+          [[ -z "$field_value" ]] && return
+          
+          if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+            # JSON array
+            echo "$field_value" | jq -r '.[]' 2>/dev/null | while IFS= read -r url; do
+              [[ -z "$url" ]] && continue
+              if [[ ! "$url" =~ ^https?:// ]]; then
+                ERRORS+=("$field_name contains invalid URL: $url (must start with http:// or https://)")
+              fi
+            done
+          else
+            # Single value
+            if [[ ! "$field_value" =~ ^https?:// ]]; then
+              ERRORS+=("$field_name must be a valid URL starting with http:// or https://")
+            fi
+          fi
+        }
+        
+        validate_url_field "embed-urls" "${{ inputs.embed-urls }}"
+        validate_url_field "embed-image-urls" "${{ inputs.embed-image-urls }}"
+        validate_url_field "embed-thumbnail-urls" "${{ inputs.embed-thumbnail-urls }}"
+        validate_url_field "embed-author-urls" "${{ inputs.embed-author-urls }}"
+        validate_url_field "embed-author-icons" "${{ inputs.embed-author-icons }}"
+        validate_url_field "embed-footer-icons" "${{ inputs.embed-footer-icons }}"
+        
+        # Validate embed-timestamps format (ISO 8601 or "now")
+        if [[ -n "${{ inputs.embed-timestamps }}" ]]; then
+          timestamps="${{ inputs.embed-timestamps }}"
+          if [[ "$timestamps" =~ ^\[.*\]$ ]]; then
+            # JSON array
+            echo "$timestamps" | jq -r '.[]' 2>/dev/null | while IFS= read -r ts; do
+              [[ -z "$ts" ]] && continue
+              if [[ "$ts" != "now" ]] && ! date -d "$ts" &>/dev/null 2>&1 && ! date -j -f "%Y-%m-%dT%H:%M:%S" "$ts" &>/dev/null 2>&1; then
+                ERRORS+=("embed-timestamps contains invalid timestamp: $ts (expected ISO 8601 format or 'now')")
+              fi
+            done
+          else
+            # Single value
+            if [[ "$timestamps" != "now" ]] && ! date -d "$timestamps" &>/dev/null 2>&1 && ! date -j -f "%Y-%m-%dT%H:%M:%S" "$timestamps" &>/dev/null 2>&1; then
+              ERRORS+=("embed-timestamps contains invalid timestamp: $timestamps (expected ISO 8601 format or 'now')")
+            fi
+          fi
+        fi
+        
+        # Validate embed-fields JSON format if provided
+        if [[ -n "${{ inputs.embed-fields }}" ]]; then
+          fields="${{ inputs.embed-fields }}"
+          if ! echo "$fields" | jq empty 2>/dev/null; then
+            ERRORS+=("embed-fields must be valid JSON")
+          else
+            # Validate structure: should be array or array of arrays
+            if [[ "$fields" =~ ^\[.*\]$ ]]; then
+              # Check if it's an array of arrays or array of objects
+              echo "$fields" | jq -r '.[]' 2>/dev/null | while IFS= read -r field; do
+                if [[ "$field" =~ ^\{.*\}$ ]]; then
+                  # Validate field has required "name" and "value" properties
+                  name=$(echo "$field" | jq -r '.name' 2>/dev/null)
+                  value=$(echo "$field" | jq -r '.value' 2>/dev/null)
+                  if [[ "$name" == "null" ]] || [[ "$value" == "null" ]]; then
+                    ERRORS+=("embed-fields objects must contain 'name' and 'value' properties")
+                  fi
+                fi
+              done
+            fi
+          fi
+        fi
+        
+        # Report all errors
+        if [[ ${#ERRORS[@]} -gt 0 ]]; then
+          echo -e "${RED}Input validation failed with ${#ERRORS[@]} error(s):${NC}"
+          for error in "${ERRORS[@]}"; do
+            echo -e "${RED}  ✗ $error${NC}"
+          done
+          exit 1
+        fi
+        
+        echo -e "${YELLOW}✓ All inputs validated successfully${NC}"
