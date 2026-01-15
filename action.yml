@@ -330,7 +330,7 @@ runs:
         fi
         
         # Validate embed-fields JSON format if provided
-        if [[ -n "${{ inputs.embed-fields }}" ]]; then
+        if [[ -n '${{ inputs.embed-fields }}' ]]; then
           fields='${{ inputs.embed-fields }}'
           if ! echo "$fields" | jq empty 2>/dev/null; then
             ERRORS+=("embed-fields must be valid JSON")
