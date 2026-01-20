@@ -7,7 +7,7 @@ branding:
   color: 'purple'
 
 inputs:
-  webhook-url:
+  webhook_url:
     description: 'The Discord webhook URL to send the message to'
     required: true
   #### Parts of the normal message, that are not in an embed ####
@@ -21,7 +21,7 @@ inputs:
     description: 'The username to display as the message sender'
     required: false
     default: ''
-  avatar-url:
+  avatar_url:
     description: 'The URL of the avatar image to use for the message sender'
     required: false
     default: ''
