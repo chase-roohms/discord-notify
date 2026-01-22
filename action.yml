@@ -551,16 +551,16 @@ runs:
             # Build author object if any author field is present
             if [[ "$AUTHOR" != "null" ]] || [[ "$AUTHOR_URL" != "null" ]] || [[ "$AUTHOR_ICON" != "null" ]]; then
               AUTHOR_OBJ='{}'
-              [[ "$AUTHOR" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --argjson name "$AUTHOR" '. + {name: $name}')
-              [[ "$AUTHOR_URL" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --argjson url "$AUTHOR_URL" '. + {url: $url}')
-              [[ "$AUTHOR_ICON" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --argjson icon_url "$AUTHOR_ICON" '. + {icon_url: $icon_url}')
+              [[ "$AUTHOR" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --arg name "$(echo "$AUTHOR" | jq -r '.')" '. + {name: $name}')
+              [[ "$AUTHOR_URL" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --arg url "$(echo "$AUTHOR_URL" | jq -r '.')" '. + {url: $url}')
+              [[ "$AUTHOR_ICON" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --arg icon_url "$(echo "$AUTHOR_ICON" | jq -r '.')" '. + {icon_url: $icon_url}')
               EMBED=$(echo "$EMBED" | jq --argjson author "$AUTHOR_OBJ" '. + {author: $author}')
             fi
             
             # Add basic embed fields
-            [[ "$TITLE" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson title "$TITLE" '. + {title: $title}')
-            [[ "$DESCRIPTION" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson description "$DESCRIPTION" '. + {description: $description}')
-            [[ "$URL" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson url "$URL" '. + {url: $url}')
+            [[ "$TITLE" != "null" ]] && EMBED=$(echo "$EMBED" | jq --arg title "$(echo "$TITLE" | jq -r '.')" '. + {title: $title}')
+            [[ "$DESCRIPTION" != "null" ]] && EMBED=$(echo "$EMBED" | jq --arg description "$(echo "$DESCRIPTION" | jq -r '.')" '. + {description: $description}')
+            [[ "$URL" != "null" ]] && EMBED=$(echo "$EMBED" | jq --arg url "$(echo "$URL" | jq -r '.')" '. + {url: $url}')
             
             # Add color (convert hex to decimal)
             if [[ "$COLOR_HEX" != "null" ]]; then
@@ -576,28 +576,28 @@ runs:
             
             # Add thumbnail if present
             if [[ "$THUMBNAIL_URL" != "null" ]]; then
-              THUMBNAIL_OBJ=$(jq -n --argjson url "$THUMBNAIL_URL" '{url: $url}')
+              THUMBNAIL_OBJ=$(jq -n --arg url "$(echo "$THUMBNAIL_URL" | jq -r '.')" '{url: $url}')
               EMBED=$(echo "$EMBED" | jq --argjson thumbnail "$THUMBNAIL_OBJ" '. + {thumbnail: $thumbnail}')
             fi
             
             # Add image if present
             if [[ "$IMAGE_URL" != "null" ]]; then
-              IMAGE_OBJ=$(jq -n --argjson url "$IMAGE_URL" '{url: $url}')
+              IMAGE_OBJ=$(jq -n --arg url "$(echo "$IMAGE_URL" | jq -r '.')" '{url: $url}')
               EMBED=$(echo "$EMBED" | jq --argjson image "$IMAGE_OBJ" '. + {image: $image}')
             fi
             
             # Build footer object if any footer field is present
             if [[ "$FOOTER" != "null" ]] || [[ "$FOOTER_ICON" != "null" ]]; then
               FOOTER_OBJ='{}'
-              [[ "$FOOTER" != "null" ]] && FOOTER_OBJ=$(echo "$FOOTER_OBJ" | jq --argjson text "$FOOTER" '. + {text: $text}')
-              [[ "$FOOTER_ICON" != "null" ]] && FOOTER_OBJ=$(echo "$FOOTER_OBJ" | jq --argjson icon_url "$FOOTER_ICON" '. + {icon_url: $icon_url}')
+              [[ "$FOOTER" != "null" ]] && FOOTER_OBJ=$(echo "$FOOTER_OBJ" | jq --arg text "$(echo "$FOOTER" | jq -r '.')" '. + {text: $text}')
+              [[ "$FOOTER_ICON" != "null" ]] && FOOTER_OBJ=$(echo "$FOOTER_OBJ" | jq --arg icon_url "$(echo "$FOOTER_ICON" | jq -r '.')" '. + {icon_url: $icon_url}')
               EMBED=$(echo "$EMBED" | jq --argjson footer "$FOOTER_OBJ" '. + {footer: $footer}')
             fi
             
             # Add timestamp if present
             if [[ "$TIMESTAMP" != "null" ]]; then
               TS_VALUE=$(convert_timestamp "$(echo "$TIMESTAMP" | jq -r '.')")
-              [[ "$TS_VALUE" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson timestamp "$TS_VALUE" '. + {timestamp: $timestamp}')
+              [[ "$TS_VALUE" != "null" ]] && EMBED=$(echo "$EMBED" | jq --arg timestamp "$(echo "$TS_VALUE" | jq -r '.')" '. + {timestamp: $timestamp}')
             fi
             
             # Add embed to embeds array
