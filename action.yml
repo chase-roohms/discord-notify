@@ -160,15 +160,21 @@ runs:
         embed_count=0
         declare -A array_lengths
         
+        # Helper to check if a value is a JSON array (handles multiline)
+        is_json_array() {
+          local val="$1"
+          [[ -n "$val" ]] && echo "$val" | jq -e 'type == "array"' >/dev/null 2>&1
+        }
+        
         # Check each embed field and track array lengths
         check_embed_field() {
           local field_name="$1"
           local field_value="$2"
           
           if [[ -n "$field_value" ]]; then
-            if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+            if is_json_array "$field_value"; then
               # It's a JSON array - validate and get its length
-              if echo "$field_value" | jq empty 2>/dev/null; then
+              if true; then
                 # Special handling for embed-fields: check if it's an array of objects (single embed) 
                 # vs array of arrays (multiple embeds)
                 if [[ "$field_name" == "embed-fields" ]]; then
@@ -253,7 +259,7 @@ runs:
         # Validate embed-colors format (hex values)
         if [[ -n "$INPUT_EMBED_COLORS" ]]; then
           colors="$INPUT_EMBED_COLORS"
-          if [[ "$colors" =~ ^\[.*\]$ ]]; then
+          if is_json_array "$colors"; then
             # JSON array - use process substitution to avoid subshell
             jq_output=$(echo "$colors" | jq -r '.[]' 2>/dev/null || echo "")
             if [[ -n "$jq_output" ]]; then
@@ -279,7 +285,7 @@ runs:
           
           [[ -z "$field_value" ]] && return
           
-          if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+          if is_json_array "$field_value"; then
             # JSON array - use heredoc to avoid subshell issues
             jq_output=$(echo "$field_value" | jq -r '.[]' 2>/dev/null || echo "")
             if [[ -n "$jq_output" ]]; then
@@ -308,7 +314,7 @@ runs:
         # Validate embed-timestamps format (ISO 8601 or "now")
         if [[ -n "$INPUT_EMBED_TIMESTAMPS" ]]; then
           timestamps="$INPUT_EMBED_TIMESTAMPS"
-          if [[ "$timestamps" =~ ^\[.*\]$ ]]; then
+          if is_json_array "$timestamps"; then
             # JSON array - use heredoc to avoid subshell issues
             jq_output=$(echo "$timestamps" | jq -r '.[]' 2>/dev/null || echo "")
             if [[ -n "$jq_output" ]]; then
@@ -339,7 +345,7 @@ runs:
             ERRORS+=("embed-fields must be valid JSON")
           else
             # Validate structure: should be array or array of arrays
-            if [[ "$fields" =~ ^\[.*\]$ ]]; then
+            if is_json_array "$fields"; then
               # Check if it's an array of arrays or array of objects - use heredoc
               jq_output=$(echo "$fields" | jq -r '.[]' 2>/dev/null || echo "")
               if [[ -n "$jq_output" ]]; then
@@ -410,6 +416,12 @@ runs:
           PAYLOAD=$(echo "$PAYLOAD" | jq --arg content "$INPUT_CONTENT" '. + {content: $content}')
         fi
         
+        # Helper to check if a value is a JSON array (handles multiline)
+        is_json_array() {
+          local val="$1"
+          [[ -n "$val" ]] && echo "$val" | jq -e 'type == "array"' >/dev/null 2>&1
+        }
+        
         # Helper function to get value from single or array
         get_value_at_index() {
           local input="$1"
@@ -422,7 +434,7 @@ runs:
           fi
           
           # Check if it's a JSON array
-          if [[ "$input" =~ ^\[.*\]$ ]]; then
+          if is_json_array "$input"; then
             # Special handling for embed-fields
             if [[ "$field_name" == "embed-fields" ]]; then
               # Check if first element is an array or object
@@ -507,7 +519,7 @@ runs:
         TIMESTAMPS_FOR_COUNT="$INPUT_EMBED_TIMESTAMPS"
         
         # Special handling for embed-fields count
-        if [[ -n "$FIELDS_FOR_COUNT" ]] && [[ "$FIELDS_FOR_COUNT" =~ ^\[.*\]$ ]]; then
+        if [[ -n "$FIELDS_FOR_COUNT" ]] && is_json_array "$FIELDS_FOR_COUNT"; then
           # Check if first element is an array or object
           first_elem=$(echo "$FIELDS_FOR_COUNT" | jq '.[0] | type' 2>/dev/null)
           if [[ "$first_elem" == '"array"' ]]; then
@@ -534,7 +546,7 @@ runs:
           "$TIMESTAMPS_FOR_COUNT"; do
           
           if [[ -n "$field_value" ]]; then
-            if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+            if is_json_array "$field_value"; then
               length=$(echo "$field_value" | jq '. | length' 2>/dev/null || echo "0")
               [[ $length -gt $EMBED_COUNT ]] && EMBED_COUNT=$length
             else
