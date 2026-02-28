@@ -115,6 +115,23 @@ runs:
   steps:
     - name: Validate inputs
       shell: bash
+      env:
+        INPUT_WEBHOOK_URL: ${{ inputs.webhook_url }}
+        INPUT_AVATAR_URL: ${{ inputs.avatar_url }}
+        INPUT_CONTENT: ${{ inputs.content }}
+        INPUT_EMBED_AUTHORS: ${{ inputs.embed-authors }}
+        INPUT_EMBED_AUTHOR_URLS: ${{ inputs.embed-author-urls }}
+        INPUT_EMBED_AUTHOR_ICONS: ${{ inputs.embed-author-icons }}
+        INPUT_EMBED_TITLES: ${{ inputs.embed-titles }}
+        INPUT_EMBED_DESCRIPTIONS: ${{ inputs.embed-descriptions }}
+        INPUT_EMBED_URLS: ${{ inputs.embed-urls }}
+        INPUT_EMBED_COLORS: ${{ inputs.embed-colors }}
+        INPUT_EMBED_IMAGE_URLS: ${{ inputs.embed-image-urls }}
+        INPUT_EMBED_THUMBNAIL_URLS: ${{ inputs.embed-thumbnail-urls }}
+        INPUT_EMBED_FIELDS: ${{ inputs.embed-fields }}
+        INPUT_EMBED_FOOTERS: ${{ inputs.embed-footers }}
+        INPUT_EMBED_FOOTER_ICONS: ${{ inputs.embed-footer-icons }}
+        INPUT_EMBED_TIMESTAMPS: ${{ inputs.embed-timestamps }}
       run: |
         # Ensure script doesn't exit on command failures
         set +e
@@ -128,14 +145,14 @@ runs:
         ERRORS=()
         
         # Validate webhook_url (required)
-        if [[ -z "${{ inputs.webhook_url }}" ]]; then
+        if [[ -z "$INPUT_WEBHOOK_URL" ]]; then
           ERRORS+=("webhook_url is required")
-        elif [[ ! "${{ inputs.webhook_url }}" =~ ^https://discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$ ]]; then
+        elif [[ ! "$INPUT_WEBHOOK_URL" =~ ^https://discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+$ ]]; then
           ERRORS+=("webhook_url must be a valid Discord webhook URL (format: https://discord.com/api/webhooks/{id}/{token})")
         fi
         
         # Validate avatar_url if provided
-        if [[ -n "${{ inputs.avatar_url }}" ]] && [[ ! "${{ inputs.avatar_url }}" =~ ^https?:// ]]; then
+        if [[ -n "$INPUT_AVATAR_URL" ]] && [[ ! "$INPUT_AVATAR_URL" =~ ^https?:// ]]; then
           ERRORS+=("avatar_url must be a valid URL starting with http:// or https://")
         fi
         
@@ -143,15 +160,21 @@ runs:
         embed_count=0
         declare -A array_lengths
         
+        # Helper to check if a value is a JSON array (handles multiline)
+        is_json_array() {
+          local val="$1"
+          [[ -n "$val" ]] && echo "$val" | jq -e 'type == "array"' >/dev/null 2>&1
+        }
+        
         # Check each embed field and track array lengths
         check_embed_field() {
           local field_name="$1"
           local field_value="$2"
           
           if [[ -n "$field_value" ]]; then
-            if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+            if is_json_array "$field_value"; then
               # It's a JSON array - validate and get its length
-              if echo "$field_value" | jq empty 2>/dev/null; then
+              if true; then
                 # Special handling for embed-fields: check if it's an array of objects (single embed) 
                 # vs array of arrays (multiple embeds)
                 if [[ "$field_name" == "embed-fields" ]]; then
@@ -185,19 +208,19 @@ runs:
         }
         
         # Check all embed fields
-        check_embed_field "embed-authors" ${{ toJSON(inputs.embed-authors) }}
-        check_embed_field "embed-author-urls" ${{ toJSON(inputs.embed-author-urls) }}
-        check_embed_field "embed-author-icons" ${{ toJSON(inputs.embed-author-icons) }}
-        check_embed_field "embed-titles" ${{ toJSON(inputs.embed-titles) }}
-        check_embed_field "embed-descriptions" ${{ toJSON(inputs.embed-descriptions) }}
-        check_embed_field "embed-urls" ${{ toJSON(inputs.embed-urls) }}
-        check_embed_field "embed-colors" ${{ toJSON(inputs.embed-colors) }}
-        check_embed_field "embed-image-urls" ${{ toJSON(inputs.embed-image-urls) }}
-        check_embed_field "embed-thumbnail-urls" ${{ toJSON(inputs.embed-thumbnail-urls) }}
-        check_embed_field "embed-fields" ${{ toJSON(inputs.embed-fields) }}
-        check_embed_field "embed-footers" ${{ toJSON(inputs.embed-footers) }}
-        check_embed_field "embed-footer-icons" ${{ toJSON(inputs.embed-footer-icons) }}
-        check_embed_field "embed-timestamps" ${{ toJSON(inputs.embed-timestamps) }}
+        check_embed_field "embed-authors" "$INPUT_EMBED_AUTHORS"
+        check_embed_field "embed-author-urls" "$INPUT_EMBED_AUTHOR_URLS"
+        check_embed_field "embed-author-icons" "$INPUT_EMBED_AUTHOR_ICONS"
+        check_embed_field "embed-titles" "$INPUT_EMBED_TITLES"
+        check_embed_field "embed-descriptions" "$INPUT_EMBED_DESCRIPTIONS"
+        check_embed_field "embed-urls" "$INPUT_EMBED_URLS"
+        check_embed_field "embed-colors" "$INPUT_EMBED_COLORS"
+        check_embed_field "embed-image-urls" "$INPUT_EMBED_IMAGE_URLS"
+        check_embed_field "embed-thumbnail-urls" "$INPUT_EMBED_THUMBNAIL_URLS"
+        check_embed_field "embed-fields" "$INPUT_EMBED_FIELDS"
+        check_embed_field "embed-footers" "$INPUT_EMBED_FOOTERS"
+        check_embed_field "embed-footer-icons" "$INPUT_EMBED_FOOTER_ICONS"
+        check_embed_field "embed-timestamps" "$INPUT_EMBED_TIMESTAMPS"
         
         # Validate that all JSON arrays have the same length
         if [[ ${#array_lengths[@]} -gt 1 ]]; then
@@ -228,15 +251,15 @@ runs:
         
         # If no embeds, validate that content is provided
         if [[ $embed_count -eq 0 ]]; then
-          if [[ -z "${{ inputs.content }}" ]]; then
+          if [[ -z "$INPUT_CONTENT" ]]; then
             ERRORS+=("Content must be provided if no embeds are specified")
           fi
         fi
         
         # Validate embed-colors format (hex values)
-        if [[ -n '${{ inputs.embed-colors }}' ]]; then
-          colors='${{ inputs.embed-colors }}'
-          if [[ "$colors" =~ ^\[.*\]$ ]]; then
+        if [[ -n "$INPUT_EMBED_COLORS" ]]; then
+          colors="$INPUT_EMBED_COLORS"
+          if is_json_array "$colors"; then
             # JSON array - use process substitution to avoid subshell
             jq_output=$(echo "$colors" | jq -r '.[]' 2>/dev/null || echo "")
             if [[ -n "$jq_output" ]]; then
@@ -262,7 +285,7 @@ runs:
           
           [[ -z "$field_value" ]] && return
           
-          if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+          if is_json_array "$field_value"; then
             # JSON array - use heredoc to avoid subshell issues
             jq_output=$(echo "$field_value" | jq -r '.[]' 2>/dev/null || echo "")
             if [[ -n "$jq_output" ]]; then
@@ -281,17 +304,17 @@ runs:
           fi
         }
         
-        validate_url_field "embed-urls" "${{ inputs.embed-urls }}"
-        validate_url_field "embed-image-urls" "${{ inputs.embed-image-urls }}"
-        validate_url_field "embed-thumbnail-urls" "${{ inputs.embed-thumbnail-urls }}"
-        validate_url_field "embed-author-urls" "${{ inputs.embed-author-urls }}"
-        validate_url_field "embed-author-icons" "${{ inputs.embed-author-icons }}"
-        validate_url_field "embed-footer-icons" "${{ inputs.embed-footer-icons }}"
+        validate_url_field "embed-urls" "$INPUT_EMBED_URLS"
+        validate_url_field "embed-image-urls" "$INPUT_EMBED_IMAGE_URLS"
+        validate_url_field "embed-thumbnail-urls" "$INPUT_EMBED_THUMBNAIL_URLS"
+        validate_url_field "embed-author-urls" "$INPUT_EMBED_AUTHOR_URLS"
+        validate_url_field "embed-author-icons" "$INPUT_EMBED_AUTHOR_ICONS"
+        validate_url_field "embed-footer-icons" "$INPUT_EMBED_FOOTER_ICONS"
         
         # Validate embed-timestamps format (ISO 8601 or "now")
-        if [[ -n "${{ inputs.embed-timestamps }}" ]]; then
-          timestamps="${{ inputs.embed-timestamps }}"
-          if [[ "$timestamps" =~ ^\[.*\]$ ]]; then
+        if [[ -n "$INPUT_EMBED_TIMESTAMPS" ]]; then
+          timestamps="$INPUT_EMBED_TIMESTAMPS"
+          if is_json_array "$timestamps"; then
             # JSON array - use heredoc to avoid subshell issues
             jq_output=$(echo "$timestamps" | jq -r '.[]' 2>/dev/null || echo "")
             if [[ -n "$jq_output" ]]; then
@@ -316,13 +339,13 @@ runs:
         fi
         
         # Validate embed-fields JSON format if provided
-        if [[ -n '${{ toJSON(inputs.embed-fields) }}' ]]; then
-          fields='${{ toJSON(inputs.embed-fields) }}'
+        if [[ -n "$INPUT_EMBED_FIELDS" ]]; then
+          fields="$INPUT_EMBED_FIELDS"
           if ! echo "$fields" | jq empty 2>/dev/null; then
             ERRORS+=("embed-fields must be valid JSON")
           else
             # Validate structure: should be array or array of arrays
-            if [[ "$fields" =~ ^\[.*\]$ ]]; then
+            if is_json_array "$fields"; then
               # Check if it's an array of arrays or array of objects - use heredoc
               jq_output=$(echo "$fields" | jq -r '.[]' 2>/dev/null || echo "")
               if [[ -n "$jq_output" ]]; then
@@ -356,6 +379,24 @@ runs:
     - name: Build Discord Payload
       id: build_payload
       shell: bash
+      env:
+        INPUT_USERNAME: ${{ inputs.username }}
+        INPUT_AVATAR_URL: ${{ inputs.avatar_url }}
+        INPUT_CONTENT: ${{ inputs.content }}
+        INPUT_EMBED_AUTHORS: ${{ inputs.embed-authors }}
+        INPUT_EMBED_AUTHOR_URLS: ${{ inputs.embed-author-urls }}
+        INPUT_EMBED_AUTHOR_ICONS: ${{ inputs.embed-author-icons }}
+        INPUT_EMBED_TITLES: ${{ inputs.embed-titles }}
+        INPUT_EMBED_DESCRIPTIONS: ${{ inputs.embed-descriptions }}
+        INPUT_EMBED_URLS: ${{ inputs.embed-urls }}
+        INPUT_EMBED_COLORS: ${{ inputs.embed-colors }}
+        INPUT_EMBED_IMAGE_URLS: ${{ inputs.embed-image-urls }}
+        INPUT_EMBED_THUMBNAIL_URLS: ${{ inputs.embed-thumbnail-urls }}
+        INPUT_EMBED_FIELDS: ${{ inputs.embed-fields }}
+        INPUT_EMBED_FOOTERS: ${{ inputs.embed-footers }}
+        INPUT_EMBED_FOOTER_ICONS: ${{ inputs.embed-footer-icons }}
+        INPUT_EMBED_TIMESTAMPS: ${{ inputs.embed-timestamps }}
+        RUNNER_TEMP: ${{ runner.temp }}
       run: |
         # Use jq to build the JSON payload based on inputs
         
@@ -363,17 +404,23 @@ runs:
         PAYLOAD='{}'
         
         # Add basic fields if provided
-        if [[ -n "${{ inputs.username }}" ]]; then
-          PAYLOAD=$(echo "$PAYLOAD" | jq --arg username "${{ inputs.username }}" '. + {username: $username}')
+        if [[ -n "$INPUT_USERNAME" ]]; then
+          PAYLOAD=$(echo "$PAYLOAD" | jq --arg username "$INPUT_USERNAME" '. + {username: $username}')
         fi
         
-        if [[ -n "${{ inputs.avatar_url }}" ]]; then
-          PAYLOAD=$(echo "$PAYLOAD" | jq --arg avatar_url "${{ inputs.avatar_url }}" '. + {avatar_url: $avatar_url}')
+        if [[ -n "$INPUT_AVATAR_URL" ]]; then
+          PAYLOAD=$(echo "$PAYLOAD" | jq --arg avatar_url "$INPUT_AVATAR_URL" '. + {avatar_url: $avatar_url}')
         fi
         
-        if [[ -n "${{ inputs.content }}" ]]; then
-          PAYLOAD=$(echo "$PAYLOAD" | jq --arg content "${{ inputs.content }}" '. + {content: $content}')
+        if [[ -n "$INPUT_CONTENT" ]]; then
+          PAYLOAD=$(echo "$PAYLOAD" | jq --arg content "$INPUT_CONTENT" '. + {content: $content}')
         fi
+        
+        # Helper to check if a value is a JSON array (handles multiline)
+        is_json_array() {
+          local val="$1"
+          [[ -n "$val" ]] && echo "$val" | jq -e 'type == "array"' >/dev/null 2>&1
+        }
         
         # Helper function to get value from single or array
         get_value_at_index() {
@@ -387,7 +434,7 @@ runs:
           fi
           
           # Check if it's a JSON array
-          if [[ "$input" =~ ^\[.*\]$ ]]; then
+          if is_json_array "$input"; then
             # Special handling for embed-fields
             if [[ "$field_name" == "embed-fields" ]]; then
               # Check if first element is an array or object
@@ -460,19 +507,19 @@ runs:
         EMBED_COUNT=0
         
         # Parse all embed inputs through jq to handle JSON arrays properly
-        AUTHORS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-authors) }}' | jq -r 'if . == "" then "" else . end')
-        TITLES_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-titles) }}' | jq -r 'if . == "" then "" else . end')
-        DESCRIPTIONS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-descriptions) }}' | jq -r 'if . == "" then "" else . end')
-        COLORS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-colors) }}' | jq -r 'if . == "" then "" else . end')
-        URLS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-urls) }}' | jq -r 'if . == "" then "" else . end')
-        IMAGE_URLS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-image-urls) }}' | jq -r 'if . == "" then "" else . end')
-        THUMBNAIL_URLS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-thumbnail-urls) }}' | jq -r 'if . == "" then "" else . end')
-        FIELDS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-fields) }}' | jq -r 'if . == "" then "" else . end')
-        FOOTERS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-footers) }}' | jq -r 'if . == "" then "" else . end')
-        TIMESTAMPS_FOR_COUNT=$(echo '${{ toJSON(inputs.embed-timestamps) }}' | jq -r 'if . == "" then "" else . end')
+        AUTHORS_FOR_COUNT="$INPUT_EMBED_AUTHORS"
+        TITLES_FOR_COUNT="$INPUT_EMBED_TITLES"
+        DESCRIPTIONS_FOR_COUNT="$INPUT_EMBED_DESCRIPTIONS"
+        COLORS_FOR_COUNT="$INPUT_EMBED_COLORS"
+        URLS_FOR_COUNT="$INPUT_EMBED_URLS"
+        IMAGE_URLS_FOR_COUNT="$INPUT_EMBED_IMAGE_URLS"
+        THUMBNAIL_URLS_FOR_COUNT="$INPUT_EMBED_THUMBNAIL_URLS"
+        FIELDS_FOR_COUNT="$INPUT_EMBED_FIELDS"
+        FOOTERS_FOR_COUNT="$INPUT_EMBED_FOOTERS"
+        TIMESTAMPS_FOR_COUNT="$INPUT_EMBED_TIMESTAMPS"
         
         # Special handling for embed-fields count
-        if [[ -n "$FIELDS_FOR_COUNT" ]] && [[ "$FIELDS_FOR_COUNT" =~ ^\[.*\]$ ]]; then
+        if [[ -n "$FIELDS_FOR_COUNT" ]] && is_json_array "$FIELDS_FOR_COUNT"; then
           # Check if first element is an array or object
           first_elem=$(echo "$FIELDS_FOR_COUNT" | jq '.[0] | type' 2>/dev/null)
           if [[ "$first_elem" == '"array"' ]]; then
@@ -499,7 +546,7 @@ runs:
           "$TIMESTAMPS_FOR_COUNT"; do
           
           if [[ -n "$field_value" ]]; then
-            if [[ "$field_value" =~ ^\[.*\]$ ]]; then
+            if is_json_array "$field_value"; then
               length=$(echo "$field_value" | jq '. | length' 2>/dev/null || echo "0")
               [[ $length -gt $EMBED_COUNT ]] && EMBED_COUNT=$length
             else
@@ -519,33 +566,31 @@ runs:
             EMBED='{}'
             
             # Get values for this embed index
-            # Parse inputs through jq to handle JSON arrays properly from GitHub Actions
-            AUTHOR_RAW=$(echo '${{ toJSON(inputs.embed-authors) }}' | jq -r 'if . == "" then "" else . end')
+            AUTHOR_RAW="$INPUT_EMBED_AUTHORS"
             AUTHOR=$(get_value_at_index "$AUTHOR_RAW" $i)
-            AUTHOR_URL_RAW=$(echo '${{ toJSON(inputs.embed-author-urls) }}' | jq -r 'if . == "" then "" else . end')
+            AUTHOR_URL_RAW="$INPUT_EMBED_AUTHOR_URLS"
             AUTHOR_URL=$(get_value_at_index "$AUTHOR_URL_RAW" $i)
-            AUTHOR_ICON_RAW=$(echo '${{ toJSON(inputs.embed-author-icons) }}' | jq -r 'if . == "" then "" else . end')
+            AUTHOR_ICON_RAW="$INPUT_EMBED_AUTHOR_ICONS"
             AUTHOR_ICON=$(get_value_at_index "$AUTHOR_ICON_RAW" $i)
-            TITLE_RAW=$(echo '${{ toJSON(inputs.embed-titles) }}' | jq -r 'if . == "" then "" else . end')
+            TITLE_RAW="$INPUT_EMBED_TITLES"
             TITLE=$(get_value_at_index "$TITLE_RAW" $i)
-            DESCRIPTION_RAW=$(echo '${{ toJSON(inputs.embed-descriptions) }}' | jq -r 'if . == "" then "" else . end')
+            DESCRIPTION_RAW="$INPUT_EMBED_DESCRIPTIONS"
             DESCRIPTION=$(get_value_at_index "$DESCRIPTION_RAW" $i)
-            URL_RAW=$(echo '${{ toJSON(inputs.embed-urls) }}' | jq -r 'if . == "" then "" else . end')
+            URL_RAW="$INPUT_EMBED_URLS"
             URL=$(get_value_at_index "$URL_RAW" $i)
-            COLOR_HEX_RAW=$(echo '${{ toJSON(inputs.embed-colors) }}' | jq -r 'if . == "" then "" else . end')
+            COLOR_HEX_RAW="$INPUT_EMBED_COLORS"
             COLOR_HEX=$(get_value_at_index "$COLOR_HEX_RAW" $i)
-            IMAGE_URL_RAW=$(echo '${{ toJSON(inputs.embed-image-urls) }}' | jq -r 'if . == "" then "" else . end')
+            IMAGE_URL_RAW="$INPUT_EMBED_IMAGE_URLS"
             IMAGE_URL=$(get_value_at_index "$IMAGE_URL_RAW" $i)
-            THUMBNAIL_URL_RAW=$(echo '${{ toJSON(inputs.embed-thumbnail-urls) }}' | jq -r 'if . == "" then "" else . end')
+            THUMBNAIL_URL_RAW="$INPUT_EMBED_THUMBNAIL_URLS"
             THUMBNAIL_URL=$(get_value_at_index "$THUMBNAIL_URL_RAW" $i)
-            # Parse embed-fields through jq to handle JSON properly from GitHub Actions
-            FIELDS_RAW=$(echo '${{ toJSON(inputs.embed-fields) }}' | jq -r 'if . == "" then "" else . end')
+            FIELDS_RAW="$INPUT_EMBED_FIELDS"
             FIELDS=$(get_value_at_index "$FIELDS_RAW" $i "embed-fields")
-            FOOTER_RAW=$(echo '${{ toJSON(inputs.embed-footers) }}' | jq -r 'if . == "" then "" else . end')
+            FOOTER_RAW="$INPUT_EMBED_FOOTERS"
             FOOTER=$(get_value_at_index "$FOOTER_RAW" $i)
-            FOOTER_ICON_RAW=$(echo '${{ toJSON(inputs.embed-footer-icons) }}' | jq -r 'if . == "" then "" else . end')
+            FOOTER_ICON_RAW="$INPUT_EMBED_FOOTER_ICONS"
             FOOTER_ICON=$(get_value_at_index "$FOOTER_ICON_RAW" $i)
-            TIMESTAMP_RAW=$(echo '${{ toJSON(inputs.embed-timestamps) }}' | jq -r 'if . == "" then "" else . end')
+            TIMESTAMP_RAW="$INPUT_EMBED_TIMESTAMPS"
             TIMESTAMP=$(get_value_at_index "$TIMESTAMP_RAW" $i)
             
             # Build author object if any author field is present
@@ -609,8 +654,8 @@ runs:
         fi
         
         # Output payload to file for next step
-        echo "$PAYLOAD" > ${{ runner.temp }}/discord_payload.json
-        echo "payload_file=${{ runner.temp }}/discord_payload.json" >> $GITHUB_OUTPUT
+        echo "$PAYLOAD" > "$RUNNER_TEMP/discord_payload.json"
+        echo "payload_file=$RUNNER_TEMP/discord_payload.json" >> $GITHUB_OUTPUT
         
         # Also output the payload as a string for the output
         echo "payload<<EOF" >> $GITHUB_OUTPUT
@@ -623,15 +668,17 @@ runs:
     - name: Send Discord Message
       id: send_discord_message
       shell: bash
+      env:
+        INPUT_WEBHOOK_URL: ${{ inputs.webhook_url }}
+        PAYLOAD_FILE: ${{ steps.build_payload.outputs.payload_file }}
       run: |
         # Read payload from file
-        PAYLOAD_FILE="${{ steps.build_payload.outputs.payload_file }}"
         PAYLOAD_CONTENT=$(cat "$PAYLOAD_FILE")
 
         # Send request and capture both status code and response
-        HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${{ inputs.webhook_url }}" \
+        HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$INPUT_WEBHOOK_URL" \
                              -H "Content-Type: application/json" \
-                             -d "$PAYLOAD_CONTENT")
+                             -d @"$PAYLOAD_FILE")
         
         # Extract status code (last line) and body (everything else)
         HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n1)

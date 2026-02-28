@@ -303,3 +303,62 @@ jobs:
           embed-descriptions: 'Using ISO 8601 format'
           embed-colors: 'E74C3C'
           embed-timestamps: '2026-01-01T00:00:00Z'
+
+  test-special-characters:
+    name: Test Special Characters in Inputs
+    runs-on: ubuntu-latest
+    needs: test-timestamp-formats
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait to avoid rate limiting
+        run: sleep 1
+
+      - name: Test double quotes in content
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: 'Special Characters Test'
+          embed-descriptions: 'He said "hello world" and then left'
+          embed-colors: 'E67E22'
+          embed-footers: 'Quoting test'
+
+      - name: Wait between tests
+        run: sleep 1
+
+      - name: Test single quotes and apostrophes
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          embed-titles: "It's a test"
+          embed-descriptions: "This embed's description has apostrophes and 'single quotes'"
+          embed-colors: 'E67E22'
+
+      - name: Wait between tests
+        run: sleep 1
+
+      - name: Test backticks and code blocks
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: |
+            Here is some `inline code` and a code block:
+            ```bash
+            echo "Hello from a code block"
+            ```
+          embed-titles: 'Code Block Test'
+          embed-descriptions: 'Use `jq` to parse JSON'
+          embed-colors: 'E67E22'
+
+      - name: Wait between tests
+        run: sleep 1
+
+      - name: Test mixed special characters in multiple embeds
+        uses: ./
+        with:
+          webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          content: 'Testing "quotes", apostrophes, & special $characters'
+          embed-titles: '["Embed with \"quotes\"", "Embed with $pecial chars"]'
+          embed-descriptions: '["Description with ''single'' and \"double\" quotes", "Price is $100 & tax is 10%"]'
+          embed-colors: '["E67E22", "E67E22"]'
+          embed-footers: 'Special chars: " '' $ & % !'
