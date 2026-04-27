@@ -244,9 +244,9 @@ runs:
           done
         fi
         
-        # Validate embed count limit (max 10 embeds per Discord message)
+        # Warn if embed count exceeds Discord's max (will be auto-truncated to 10)
         if [[ $embed_count -gt 10 ]]; then
-          ERRORS+=("Discord allows a maximum of 10 embeds per message, but $embed_count embeds were specified")
+          echo "::warning::Discord allows a maximum of 10 embeds per message, but $embed_count embeds were specified. Excess embeds will be truncated."
         fi
         
         # If no embeds, validate that content is provided
@@ -503,6 +503,130 @@ runs:
           fi
         }
         
+        # Discord limits
+        readonly LIMIT_TITLE=256
+        readonly LIMIT_DESCRIPTION=2048
+        readonly LIMIT_FIELD_NAME=256
+        readonly LIMIT_FIELD_VALUE=1024
+        readonly LIMIT_FOOTER=2048
+        readonly LIMIT_AUTHOR=256
+        readonly LIMIT_FIELDS_PER_EMBED=25
+        readonly LIMIT_EMBEDS=10
+        readonly LIMIT_TOTAL_CHARS=6000
+        
+        # Truncate a plain string to max length, appending "..." when truncated.
+        # Reads from stdin, writes to stdout. Emits a warning on truncation.
+        truncate_string() {
+          local max="$1"
+          local label="$2"
+          local str
+          str="$(cat)"
+          local len=${#str}
+          if (( len > max )); then
+            echo "::warning::${label} truncated from ${len} to ${max} characters" >&2
+            if (( max > 3 )); then
+              printf '%s...' "${str:0:max-3}"
+            else
+              printf '%s' "${str:0:max}"
+            fi
+          else
+            printf '%s' "$str"
+          fi
+        }
+        
+        # Normalize and truncate a fields JSON array:
+        #  - cap to LIMIT_FIELDS_PER_EMBED entries
+        #  - truncate each .name to LIMIT_FIELD_NAME
+        #  - truncate each .value to LIMIT_FIELD_VALUE
+        truncate_fields_array() {
+          local fields_json="$1"
+          local original_count
+          original_count=$(echo "$fields_json" | jq 'length' 2>/dev/null || echo 0)
+          if (( original_count > LIMIT_FIELDS_PER_EMBED )); then
+            echo "::warning::Embed fields truncated from ${original_count} to ${LIMIT_FIELDS_PER_EMBED} entries" >&2
+          fi
+          echo "$fields_json" | jq \
+            --argjson maxFields "$LIMIT_FIELDS_PER_EMBED" \
+            --argjson maxName "$LIMIT_FIELD_NAME" \
+            --argjson maxValue "$LIMIT_FIELD_VALUE" '
+              .[0:$maxFields] | map(
+                (if (.name | type) == "string" and (.name | length) > $maxName
+                  then .name = (.name[0:$maxName-3] + "...")
+                  else . end)
+                |
+                (if (.value | type) == "string" and (.value | length) > $maxValue
+                  then .value = (.value[0:$maxValue-3] + "...")
+                  else . end)
+              )
+            '
+        }
+        
+        # Compute total character count across all embeds per Discord rules:
+        # title + description + footer.text + author.name + sum(field.name + field.value)
+        compute_embeds_total_chars() {
+          local embeds_json="$1"
+          echo "$embeds_json" | jq '
+            [ .[] |
+              ((.title // "") | length)
+              + ((.description // "") | length)
+              + ((.footer.text // "") | length)
+              + ((.author.name // "") | length)
+              + ( [ (.fields // [])[] |
+                    ((.name // "") | length) + ((.value // "") | length)
+                  ] | add // 0
+                )
+            ] | add // 0
+          '
+        }
+        
+        # Iteratively reduce embed total characters to <= LIMIT_TOTAL_CHARS
+        # by truncating the longest description (then title) until it fits.
+        truncate_embeds_to_total_limit() {
+          local embeds_json="$1"
+          local total
+          total=$(compute_embeds_total_chars "$embeds_json")
+          if (( total <= LIMIT_TOTAL_CHARS )); then
+            echo "$embeds_json"
+            return
+          fi
+          echo "::warning::Total embed character count is ${total}, exceeds ${LIMIT_TOTAL_CHARS}. Auto-truncating descriptions/titles." >&2
+          local guard=0
+          while (( total > LIMIT_TOTAL_CHARS )) && (( guard < 100 )); do
+            guard=$((guard + 1))
+            local excess=$((total - LIMIT_TOTAL_CHARS))
+            # Find embed index with the longest description; fall back to longest title.
+            local target_idx target_field target_len
+            target_idx=$(echo "$embeds_json" | jq '
+              [.[] | (.description // "" | length)] as $d
+              | ($d | index($d | max))
+            ')
+            target_len=$(echo "$embeds_json" | jq --argjson i "$target_idx" '.[$i].description // "" | length')
+            target_field="description"
+            if [[ -z "$target_len" ]] || (( target_len < 4 )); then
+              target_idx=$(echo "$embeds_json" | jq '
+                [.[] | (.title // "" | length)] as $t
+                | ($t | index($t | max))
+              ')
+              target_len=$(echo "$embeds_json" | jq --argjson i "$target_idx" '.[$i].title // "" | length')
+              target_field="title"
+              if [[ -z "$target_len" ]] || (( target_len < 4 )); then
+                echo "::warning::Unable to further reduce embed character count below ${LIMIT_TOTAL_CHARS}." >&2
+                break
+              fi
+            fi
+            local new_len=$((target_len - excess - 3))
+            (( new_len < 1 )) && new_len=1
+            embeds_json=$(echo "$embeds_json" | jq \
+              --argjson i "$target_idx" \
+              --argjson n "$new_len" \
+              --arg f "$target_field" '
+                .[$i][$f] = (.[$i][$f][0:$n] + "...")
+              ')
+            total=$(compute_embeds_total_chars "$embeds_json")
+          done
+          echo "$embeds_json"
+        }
+        
         # Determine number of embeds
         EMBED_COUNT=0
         
@@ -558,6 +682,12 @@ runs:
         # Also consider embed-fields count
         [[ $FIELDS_EMBED_COUNT -gt $EMBED_COUNT ]] && EMBED_COUNT=$FIELDS_EMBED_COUNT
         
+        # Cap embed count to Discord's max (10)
+        if (( EMBED_COUNT > LIMIT_EMBEDS )); then
+          echo "::warning::Embed count ${EMBED_COUNT} exceeds Discord limit of ${LIMIT_EMBEDS}; truncating to ${LIMIT_EMBEDS}."
+          EMBED_COUNT=$LIMIT_EMBEDS
+        fi
+        
         # Build embeds array if needed
         if [[ $EMBED_COUNT -gt 0 ]]; then
           EMBEDS='[]'
@@ -596,15 +726,24 @@ runs:
             # Build author object if any author field is present
             if [[ "$AUTHOR" != "null" ]] || [[ "$AUTHOR_URL" != "null" ]] || [[ "$AUTHOR_ICON" != "null" ]]; then
               AUTHOR_OBJ='{}'
-              [[ "$AUTHOR" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --arg name "$(echo "$AUTHOR" | jq -r '.')" '. + {name: $name}')
+              if [[ "$AUTHOR" != "null" ]]; then
+                AUTHOR_NAME=$(echo "$AUTHOR" | jq -r '.' | truncate_string "$LIMIT_AUTHOR" "embed author name (embed $i)")
+                AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --arg name "$AUTHOR_NAME" '. + {name: $name}')
+              fi
               [[ "$AUTHOR_URL" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --arg url "$(echo "$AUTHOR_URL" | jq -r '.')" '. + {url: $url}')
               [[ "$AUTHOR_ICON" != "null" ]] && AUTHOR_OBJ=$(echo "$AUTHOR_OBJ" | jq --arg icon_url "$(echo "$AUTHOR_ICON" | jq -r '.')" '. + {icon_url: $icon_url}')
               EMBED=$(echo "$EMBED" | jq --argjson author "$AUTHOR_OBJ" '. + {author: $author}')
             fi
             
-            # Add basic embed fields
-            [[ "$TITLE" != "null" ]] && EMBED=$(echo "$EMBED" | jq --arg title "$(echo "$TITLE" | jq -r '.')" '. + {title: $title}')
-            [[ "$DESCRIPTION" != "null" ]] && EMBED=$(echo "$EMBED" | jq --arg description "$(echo "$DESCRIPTION" | jq -r '.')" '. + {description: $description}')
+            # Add basic embed fields (with length truncation per Discord limits)
+            if [[ "$TITLE" != "null" ]]; then
+              TITLE_VAL=$(echo "$TITLE" | jq -r '.' | truncate_string "$LIMIT_TITLE" "embed title (embed $i)")
+              EMBED=$(echo "$EMBED" | jq --arg title "$TITLE_VAL" '. + {title: $title}')
+            fi
+            if [[ "$DESCRIPTION" != "null" ]]; then
+              DESC_VAL=$(echo "$DESCRIPTION" | jq -r '.' | truncate_string "$LIMIT_DESCRIPTION" "embed description (embed $i)")
+              EMBED=$(echo "$EMBED" | jq --arg description "$DESC_VAL" '. + {description: $description}')
+            fi
             [[ "$URL" != "null" ]] && EMBED=$(echo "$EMBED" | jq --arg url "$(echo "$URL" | jq -r '.')" '. + {url: $url}')
             
             # Add color (convert hex to decimal)
@@ -613,9 +752,9 @@ runs:
               [[ "$COLOR_DEC" != "null" ]] && EMBED=$(echo "$EMBED" | jq --argjson color "$COLOR_DEC" '. + {color: $color}')
             fi
             
-            # Add fields array if present
+            # Add fields array if present (truncate count to 25 and each name/value)
             if [[ "$FIELDS" != "null" ]]; then
-              # Fields should already be a JSON array
+              FIELDS=$(truncate_fields_array "$FIELDS")
               EMBED=$(echo "$EMBED" | jq --argjson fields "$FIELDS" '. + {fields: $fields}')
             fi
             
@@ -634,7 +773,10 @@ runs:
             # Build footer object if any footer field is present
             if [[ "$FOOTER" != "null" ]] || [[ "$FOOTER_ICON" != "null" ]]; then
               FOOTER_OBJ='{}'
-              [[ "$FOOTER" != "null" ]] && FOOTER_OBJ=$(echo "$FOOTER_OBJ" | jq --arg text "$(echo "$FOOTER" | jq -r '.')" '. + {text: $text}')
+              if [[ "$FOOTER" != "null" ]]; then
+                FOOTER_TEXT=$(echo "$FOOTER" | jq -r '.' | truncate_string "$LIMIT_FOOTER" "embed footer (embed $i)")
+                FOOTER_OBJ=$(echo "$FOOTER_OBJ" | jq --arg text "$FOOTER_TEXT" '. + {text: $text}')
+              fi
               [[ "$FOOTER_ICON" != "null" ]] && FOOTER_OBJ=$(echo "$FOOTER_OBJ" | jq --arg icon_url "$(echo "$FOOTER_ICON" | jq -r '.')" '. + {icon_url: $icon_url}')
               EMBED=$(echo "$EMBED" | jq --argjson footer "$FOOTER_OBJ" '. + {footer: $footer}')
             fi
@@ -648,6 +790,9 @@ runs:
             # Add embed to embeds array
             EMBEDS=$(echo "$EMBEDS" | jq --argjson embed "$EMBED" '. + [$embed]')
           done
+          
+          # Enforce overall 6000-character limit across all embeds
+          EMBEDS=$(truncate_embeds_to_total_limit "$EMBEDS")
           
           # Add embeds to payload
           PAYLOAD=$(echo "$PAYLOAD" | jq --argjson embeds "$EMBEDS" '. + {embeds: $embeds}')
